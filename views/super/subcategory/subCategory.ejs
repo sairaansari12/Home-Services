@@ -1,0 +1,477 @@
+<!-- AUI Framework -->
+<!DOCTYPE html>
+    <html>
+   <%-include ('../partials/header')%>
+   <style>
+
+    .image { 
+       position: relative; 
+       width: 100%;
+      
+     } /* for IE 6 */
+    
+       .text-block {
+      position: absolute;
+      bottom: 50px;
+      right: 20px;
+      color: white;
+      padding-left: 10px;
+      padding-top: 5px;
+      padding-bottom: 5px;
+      padding-right: 10px;
+    }
+    
+    
+    .text-actions {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      color: white;
+      padding-left: 10px;
+      padding-top: 10px;
+      padding-bottom: 10px;
+      padding-right: 10px;
+    }
+    
+    
+    
+       </style>
+    <body style="overflow: hidden;">
+        
+        
+       
+
+        <div id="page-wrapper" class="demo-example">
+
+           
+
+            <!-- #page-header -->
+
+            <%-include ('../partials/side_bar')%>
+            <!-- #page-sidebar -->
+            <div id="page-content-wrapper">
+                <div id="page-title">
+                    <a  href="javascript:;" onclick="window.history.back()";> <i class="glyph-icon icon-arrow-left float-left font-size-20 mrg5A pad20R"></i> </a>
+
+    <div class="bg-gray text-transform-upr font-size-15 font-bold primary-font pad10A" id="heading"><span id="subCatName">Sub-Categories</span>&nbsp;</div>
+
+
+
+             
+</div><!-- #page-title -->
+<div id="page-content">
+
+
+<%-include ('../partials/flashMessage')%>
+
+<div class="example-box ">
+    
+<!-- 
+    <div class="form-row col-lg-3 float-left form-vertical font-size-12 bold   dropdown form-label mrg8T ">
+        <select   data-placeholder="Choose Company" onchange="getSubCat(this.value)" class="chosen-select" id="compId">
+            <option value="" > Select Vendor</option>
+            <%for(var t=0;t<compData.length;t++){%>
+            <option value="<%-compData[t].id%>" /><%-compData[t].companyName%> 
+           
+    <%}%>
+   </select>
+
+     </div> -->
+
+    
+    <!-- <div class="form-row col-lg-3 float-left form-vertical font-size-12 bold   dropdown form-label mrg8T ">
+        <select   data-placeholder="Choose Category" onchange="getNextSubCat(this.value)" class="chosen-select" id="category">
+            <option value="" > Nothing Selected</option>
+            <%for(var t=0;t<parData.length;t++){%>
+            <option value="<%-parData[t].id%>" /><%-parData[t].name%> 
+           
+    <%}%>
+   </select>
+
+     </div> -->
+
+
+
+    <div class="form-row col-lg-3 float-left form-vertical font-size-13 bold   dropdown form-label mrg8T ">
+        <select   data-placeholder="Choose Category" onchange="getSubCat(this.value)" class="chosen-select" id="subcat">
+            <option value="" > Choose  Category</option>
+           
+   </select>
+
+     </div>
+  
+
+
+  
+
+
+
+ 
+</div>  
+
+    
+<!-- <div class="example-box">
+    <div class="example-code">
+
+        <div class="row">
+            <%for(var t=0;t<data.length;t++) {
+                %>
+            <div class="col-md-4 mrg25 T">
+
+                <div class="content-box">
+                   <a href="<%-superadminpath%>category?id=<%-data[t].id%>">
+                    <div class="content-box-wrapper center-div">
+
+                        <div class="image">
+                        <img  style="opacity:0.5" class="col-md-12" src="<%-data[t].icon %>"  width="300" height="200"  onerror="this.src='/assets/images/nocategory.png'"/>
+                        <div   class="text-block font-size-18 primary-bg"><%-data[t].name %></div>
+                    </div>
+
+                    <div class="text-actions">
+
+                       
+             <a href="javascript:;"   <%if(data[t].status==0){%> style="display:none" <%}%>  id="block_status_<%-data[t].id%>"   onclick="StatusChange('<%= data[t].id %>','1')"  class="btn small  bg-green  ">
+                <span class="button-content">
+                    <i class="glyph-icon icon-cog float-left"></i>
+                   Active &nbsp;&nbsp;&nbsp;
+                </span>
+            </a>
+
+
+         
+            
+            <a href="javascript:;"   <%if(data[t].status==1){%> style="display:none" <%}%>  id="unblock_status_<%-data[t].id%>"   onclick="StatusChange('<%= data[t].id %>','0')"  class="btn small  bg-red  ">
+                <span class="button-content">
+                    <i class="glyph-icon icon-ban-circle float-left"></i>
+                   Inactive 
+                </span>
+            </a>
+
+
+            <a    <%if(data[t].level==3){%> style="display:none" <%}%> href="<%-superadminpath%>subcategory?id=<%= data[t].id %>&name=<%= data[t].name%>"  class="btn small  primary-bg">
+                <span class="button-content">
+                    <i class="glyph-icon icon-th-list float-left"></i>
+                   Sub Categories 
+                </span>
+            </a>
+
+
+           
+
+
+
+            <div class="dropdown">
+                <a href="javascript:;" title="" class="btn small bg-blue" data-toggle="dropdown">
+                    <span class="button-content">
+                        <i class="glyph-icon font-size-11 icon-cog"></i>
+                        <i class="glyph-icon font-size-11 icon-chevron-down"></i>
+                    </span>
+                </a>
+                <ul class="dropdown-menu float-right">
+
+                    <li>
+                        <a href="<%-superadminpath%>subcategory/view?id=<%= data[t].id %>&parent=<%= data[t].parentId %>&name=<%= data[t].name%>"  title="">
+                            <i class="glyph-icon icon-edit mrg5R"></i>
+                            Edit
+                        </a>
+                    </li>
+                   
+                   
+                    <li class="divider"></li>
+                    <li>
+                        <a onclick="return confirm('Are you sure you want to delete this222?');" href="<%-superadminpath%>subcategory/delete?id=<%=data[t].id%>&parent=<%= data[t].parentId%>&name=<%= data[t].name%>" data-id="<%= data[t].id %>"  class="font-red" title="">
+                            <i class="glyph-icon icon-remove mrg5R"></i>
+                            Delete
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            
+                     
+                        
+                     
+            
+            
+            
+            
+                       
+                   
+                    </div>
+
+
+                    </div>
+
+                </a>
+                </div>
+
+            </div>
+           
+            <%}%>
+        </div>
+
+    </div>
+    
+</div> -->
+
+
+
+
+ 
+<table class="table" id="example1">
+	<thead>
+		<tr>
+			<th>Name</th>
+			<th>Icon</th>
+            <th>Created At</th>
+			<th>Action</th>
+		</tr>
+	</thead>
+	<tbody>
+        
+
+		<%for(var t=0;t<data.length;t++) {%>
+		<tr>
+			<td><h4><%-data[t].name %> </h4> </td>
+			<td> <img src="<%-data[t].icon %>" alt="noimage" width="200"  onerror="this.src='/assets/images/nocategory.png'"  height="180"/>
+            </td>
+            <td><%-commonMethods.format(new Date(data[t].createdAt)) %> </td>
+
+
+                
+              
+            <td>
+                
+            
+            
+
+             <a href="javascript:;"   <%if(data[t].status==0){%> style="display:none" <%}%>  id="block_status_<%-data[t].id%>"   onclick="StatusChange('<%= data[t].id %>','1')"  class="btn small  bg-green  ">
+                <span class="button-content">
+                    <i class="glyph-icon icon-cog float-left"></i>
+                   Active &nbsp;&nbsp;&nbsp;
+                </span>
+            </a>
+
+
+         
+            
+            <a href="javascript:;"   <%if(data[t].status==1){%> style="display:none" <%}%>  id="unblock_status_<%-data[t].id%>"   onclick="StatusChange('<%= data[t].id %>','0')"  class="btn small  bg-red  ">
+                <span class="button-content">
+                    <i class="glyph-icon icon-ban-circle float-left"></i>
+                   Inactive 
+                </span>
+            </a>
+
+
+            <a    <%if(data[t].level==3){%> style="display:none" <%}%> href="<%-superadminpath%>subcategory?id=<%= data[t].id %>&name=<%= data[t].name%>"  class="btn small  primary-bg">
+                <span class="button-content">
+                    <i class="glyph-icon icon-th-list float-left"></i>
+                   Sub Categories 
+                </span>
+            </a>
+
+
+           
+
+
+
+            <div class="dropdown">
+                <a href="javascript:;" title="" class="btn small bg-blue" data-toggle="dropdown">
+                    <span class="button-content">
+                        <i class="glyph-icon font-size-11 icon-cog"></i>
+                        <i class="glyph-icon font-size-11 icon-chevron-down"></i>
+                    </span>
+                </a>
+                <ul class="dropdown-menu float-right">
+
+                    <li>
+                        <a href="<%-superadminpath%>subcategory/view?id=<%= data[t].id %>&parent=<%= data[t].parentId %>&name=<%= data[t].name%>"  title="">
+                            <i class="glyph-icon icon-edit mrg5R"></i>
+                            Edit
+                        </a>
+                    </li>
+                   
+                   
+                    <li class="divider"></li>
+                    <li>
+                        <a onclick="return confirm('Are you sure you want to delete this222?');" href="<%-superadminpath%>subcategory/delete?id=<%=data[t].id%>&parent=<%= data[t].parentId%>&name=<%= data[t].name%>" data-id="<%= data[t].id %>"  class="font-red" title="">
+                            <i class="glyph-icon icon-remove mrg5R"></i>
+                            Delete
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+
+            </td>		
+        </tr>
+		<%}%>
+		
+	</tbody>
+	
+</table> 
+
+
+<!-- <div class="col-md-12">
+    <div class="button-group center-div">
+        <a href="javascript:;" class="btn large ui-state-default">
+            <i class="glyph-icon icon-chevron-left"></i>
+        </a>
+        <a href="javascript:;" class="btn large ui-state-default">
+            1
+        </a>
+        <a href="javascript:;" class="btn large disabled ui-state-default">
+            2
+        </a>
+        <a href="javascript:;" class="btn large ui-state-default">
+            3
+        </a>
+        <a href="javascript:;" class="btn large ui-state-default">
+            4
+        </a>
+        <a href="javascript:;" class="btn large ui-state-default">
+            <i class="glyph-icon icon-chevron-right"></i>
+        </a>
+    </div>
+</div> -->
+
+
+
+                    </div><!-- #page-content -->
+                    
+                 
+            </div><!-- #page-main -->
+        </div><!-- #page-wrapper -->
+
+    </body>
+</html>
+
+
+
+<script>
+var parent=0
+$('#category').val(getURLParameter('parent'))
+$('#compId').val(getURLParameter('compId'));
+var name=getURLParameter('name')
+if(name && name!="" && name!="null")$('#subCatName').html(name);
+
+getNextSubCat(getURLParameter('parent'))
+
+
+function getNextSubCat(id)
+{
+    parent=id
+    var comp=$('#compId').val();
+
+    $.ajax({
+            type: 'POST',
+            url: '<%-superadminpath%>subcategory/getSubCat',
+            dataType: 'json',
+            data: {'category':id,'compId':comp},
+            success: function (response) {
+                var dataAppend=null
+                var data=response.body
+                if (response.code == '200') {
+                    $('#subcat').html("")
+                    var dataAppend='<option value="">Nothing Selected</option>';
+                    var selectedId=getURLParameter('id')!=null?getURLParameter('id') :0
+                  for(var k=0;k<data.length;k++)
+                    {
+                        if(selectedId==data[k].id)
+                      dataAppend=dataAppend+'<option value="'+data[k].id+'" selected>'+data[k].name+'</option>';
+
+                      else 
+                      dataAppend=dataAppend+'<option value="'+data[k].id+'" >'+data[k].name+'</option>';
+
+                }
+                $('#subcat').html(dataAppend)
+                $('.chosen-select').trigger("chosen:updated");
+
+                    }
+
+                   
+                
+                
+            },
+
+            error :function(response)
+            {
+                showToastError(response.message)
+
+            }
+        });
+
+
+    }
+
+
+
+
+    function StatusChange(id,status)
+    {
+
+        var confirm1= (status=="1") ? "Inactive" : "Active"
+        if( confirm('Are you sure you want to '+confirm1+' this?'))
+        {
+        $.ajax({
+            type: 'POST',
+            url: '<%-superadminpath%>subcategory/status',
+            dataType: 'json',
+            data: {'id':id,'status':status},
+            success: function (response) {
+                if (response.code == '200') {
+                   // $('#block_status_'+id).html('');
+
+                    if(status == "1")
+                    {
+                       $('#block_status_'+id).hide()
+                       $('#unblock_status_'+id).show()
+                       showToastSuccess( "Service inactive successfully")
+
+
+
+                    }else{
+                         
+                         $('#block_status_'+id).show()
+                        $('#unblock_status_'+id).hide()
+                       // $('#block_status_'+id).append("<i  class='fa fa-truck'  aria-hidden='true'></i>")
+                       showToastSuccess( "Service active successfully")
+
+                    }
+                    
+                }
+                else{
+                   
+                    showToastError(response.message)
+                }
+            },
+
+            error :function(response)
+            {
+                showToastError(response.message)
+
+            }
+        });
+    }
+    }
+   
+
+    function getSubCat(id)
+    {
+        //var comp=$('#compId').val();
+     // var parent=$('#category').val();
+     var parent=getURLParameter('parent')
+
+      var sub=$('#subcat').val();
+      var name=$('#subcat option:selected').text();
+
+   window.location.href="<%-superadminpath%>/subcategory?id="+sub+"&parent="+parent+"&name="+name
+    }
+ 
+
+
+
+
+     
+    
+
+</script>
