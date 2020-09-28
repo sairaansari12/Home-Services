@@ -42,6 +42,11 @@ let modules = [
   require('./roleTypes'), 
   require('./businessType'), 
   require('./orderStatus'), 
+  require('./chat/groups.js'),
+  require('./chat/groupMembers.js'),
+  require('./chat/chatMessages.js'),
+  require('./chat/textMessages.js'),
+  require('./chat/mediaMessages.js'),
 
 
 

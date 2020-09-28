@@ -7,7 +7,65 @@ const config = require('config');
 const common = require('./helpers/common');
 const jwt = require('jsonwebtoken');
 
+const users = db.models.users;
+const companies = db.models.companies;
+const groups = db.models.groups;
+const groupa = db.models.groups;
+const groupMembers = db.models.groupMembers;
+const chatMessages = db.models.chatMessages;
+const textMessages = db.models.textMessages;
+const mediaMessages = db.models.mediaMessages;
+// const clearedMessages = db.models.clearedMessages;
+// const messagesStatus = db.models.messagesStatus;
+var token, groupID;
+
+
+chatMessages.hasMany(textMessages, {
+  foreignKey: 'messageId'
+});
+chatMessages.hasMany(mediaMessages, {
+  foreignKey: 'messageId'
+});
+chatMessages.belongsTo(users, {
+  foreignKey: 'senderId'
+});
+chatMessages.belongsTo(companies, {
+  foreignKey: 'adminId'
+});
+// chatMessages.belongsTo(chatMessages, {
+//   foreignKey: 'actualMessageId'
+// })
+chatMessages.belongsTo(groupMembers, {
+  foreignKey: 'groupId'
+})
+chatMessages.belongsTo(groupa, {
+  foreignKey: 'groupId'
+})
+groups.belongsTo(users, {
+  foreignKey: 'createdBy'
+})
+groups.belongsTo(companies, {
+  foreignKey: 'createdByAdmin'
+})
+groupMembers.belongsTo(users, {
+  foreignKey: 'userId'
+})
+groupMembers.belongsTo(companies, {
+  foreignKey: 'adminId'
+})
+// messagesStatus.belongsTo(users, {
+//   foreignKey: 'userId'
+// })
+// messagesStatus.belongsTo(companies, {
+//   foreignKey: 'adminId'
+// })
+groupa.hasMany(groupMembers, {
+  foreignKey: 'groupId'
+})
+
 const failure = 'Something Went Wrong!!! Please Try Again';
+
+
 
 module.exports = function (io) {
   io.on('connection', (socket) => {
@@ -20,14 +78,16 @@ module.exports = function (io) {
     */
     socket.on('joinRoom', async (data) => {
       try {
+        token = data.authToken;
         const authToken = data.authToken;
         const receiverId = data.receiverId;
         const groupId = data.groupId;
+        const orderId = data.orderId;
         if (!authToken) {
           return socket.emit('errorMessage', 'Please Provide JWT Token');
         }
-       
         jwt.verify(authToken, config.jwtToken, async function (err) {
+
           if (err) {
             return socket.emit('errorMessage', 'Invalid User');
           } else {
@@ -39,70 +99,131 @@ module.exports = function (io) {
             /*
             Check Sender And Receiver groupExists In our DB
            */
+
             const sender = await users.findOne({
               attributes: ['id'],
               where: {
                 id: senderId
               },
-            })
+            });
+
             if (!sender) {
-              return socket.emit('errorMessage', 'Invalid Sender');
+              const comp = await companies.findOne({
+                attributes: ['id'],
+                where: {
+                  id: senderId
+                },
+              });
+              if(!comp ){
+                return socket.emit('errorMessage', 'Invalid Sender');
+
+              }
             }
+
             const receiver = await users.findOne({
               attributes: ['id'],
               where: {
                 id: receiverId
               },
             })
+
             if (!receiver) {
-              return socket.emit('errorMessage', 'Invalid Receiver');
+              const comp = await companies.findOne({
+                attributes: ['id'],
+                where: {
+                  id: receiverId
+                },
+              });
+              if(!comp){
+                return socket.emit('errorMessage', 'Invalid Receiver');
+
+              }
             }
+
             /*
             Check if these two users have communicated with each other or not
           */
-            const groupExists = await groups.findOne({
-              attributes: ['id', 'name'],
-              where: {
-                [Op.or]: [
-                  {
-                    name: `${senderId}_${receiverId}`,
-                  },
-                  {
-                    name: `${receiverId}_${senderId}`,
-                  }
-                ]
-              },
-            })
+         var groupExists;
+         if(orderId){
+          groupExists = await groups.findOne({
+            attributes: ['id', 'name'],
+            where: {
+              name: orderId
+            },
+          })
+         }else{
+          groupExists = await groups.findOne({
+            attributes: ['id', 'name'],
+            where: {
+              [Op.or]: [
+                {
+                  name: `${senderId}_${receiverId}`,
+                },
+                {
+                  name: `${receiverId}_${senderId}`,
+                }
+              ]
+            },
+          })
+         }
             if (!groupExists) {
               const groupData = {};
-              groupData.name = `${senderId}_${receiverId}`;
-              groupData.createdBy = senderId;
+              if(orderId){
+                groupData.name = orderId;
+              }else{
+                groupData.name = `${senderId}_${receiverId}`;
+              }
+              if(data.userType == "vendor"){
+                groupData.createdByAdmin = senderId
+              }else{
+                groupData.createdBy = senderId;
+              }
+              
+              console.log("======join room", data.userType)
               const createGroup = await groups.create(groupData);
               if (createGroup) {
-
-                const membersData = [
-                  {
-                    groupId: createGroup.dataValues.id,
-                    userId: senderId
-                  },
-                  {
-                    groupId: createGroup.dataValues.id,
-                    userId: receiverId
-                  }
-                ];
+                var membersData;
+                if(data.userType == "vendor"){
+                  membersData = [
+                    {
+                      groupId: createGroup.dataValues.id,
+                      adminId: senderId
+                    },
+                    {
+                      groupId: createGroup.dataValues.id,
+                      adminId: receiverId
+                    }
+                  ];
+                }else{
+                  membersData = [
+                    {
+                      groupId: createGroup.dataValues.id,
+                      userId: senderId
+                    },
+                    {
+                      groupId: createGroup.dataValues.id,
+                      userId: receiverId
+                    }
+                  ];
+                }
+                
                 const createMembers = await groupMembers.bulkCreate(membersData);
                 if (createMembers) {
+                  groupID = createGroup.dataValues.id;
                   socket.join(createGroup.dataValues.id);
                   return socket.emit('joinRoom', { groupId: createGroup.dataValues.id });
                 }
               }
             } else {
+              groupID = groupExists.dataValues.id;
               socket.join(groupExists.dataValues.id);
               return socket.emit('joinRoom', { groupId: groupExists.dataValues.id });
             }
           } else {
+            console.log("==== group id already")
+            groupID = groupId;
             socket.join(groupId);
-              return socket.emit('joinRoom', { groupId: data.groupId });
+            return socket.emit('joinRoom', { groupId: data.groupId });
           }
         }
         });
@@ -139,6 +260,8 @@ module.exports = function (io) {
           if (err) {
             return socket.emit('errorMessage', 'Invalid User');
           } else {
+      console.log("=>>leave group")
+
             socket.leave(groupId);
             const senderId = await common.userId(authToken);
             socket.broadcast.to(groupId).emit('leaveRoom', { groupId: groupId, userId: senderId });
@@ -155,12 +278,18 @@ module.exports = function (io) {
    */
     socket.on('sendMessage', async (data) => {
       try {
-		const authToken = data.authToken;
+		    const authToken = data.authToken;
         const type = data.type;
-        const groupId = data.groupId;
+        var groupId;
+        if(data.groupId)
+           groupId = data.groupId;
+        else
+          groupId = groupID;
+
         if (!authToken) {
           return socket.emit('errorMessage', 'Please Provide JWT Token');
         }
+
         if (!type) {
           return socket.emit('errorMessage', 'Message Type is required');
         }
@@ -172,9 +301,15 @@ module.exports = function (io) {
             return socket.emit('errorMessage', 'Invalid User');
           } else {
             const senderId = await common.userId(authToken);
+            // const senderId = "86091af5-38b8-4355-9257-17774e2a98f1";
             const message = {};
-            message.senderId = senderId;
+            if(data.usertype == "admin"){
+              message.adminId = senderId;
+            }else{  
+              message.senderId = senderId;
+            }
             message.type = type;
+            message.createdAt = common.timestamp();
             message.groupId = groupId;
             if (data.actualMessageId) {
               message.actualMessageId = data.actualMessageId;
@@ -182,25 +317,7 @@ module.exports = function (io) {
             }
             const chatMessage = await chatMessages.create(message);
             if (chatMessage) {
-              const getUsers = await groupMembers.findAll({
-                attributes: ['userId'],
-                where: {
-                  groupId: groupId,
-                  userId: {
-                    [Op.ne]: senderId
-                  }
-                }
-              })
-              if (getUsers) {
-                await Promise.all(
-                  getUsers.map(async user => {
-                    const users = {};
-                    users.messageId = chatMessage.dataValues.id,
-                      users.userId = user.userId
-                    const messageStatus = await messagesStatus.create(users);
-                  })
-                )
-              }
+             
               if (type == 1) {          /////// 1 = text message
                 const text = {};
                 text.messageId = chatMessage.dataValues.id;
@@ -237,14 +354,21 @@ module.exports = function (io) {
                 const dir = config.mediapath + data.groupId
                 ///////// if folder of participants not exist then create it with other sub folders ///////////////
                 if (!fs.existsSync(dir)) {
+                  await fs.mkdir(`${dir}`, { recursive: true }, async function (err){
+                    if(err){
+                    }
+                  })
                   await Promise.all(
-                    config.dirnames.map(async dirname => {
-                      await fs.mkdirSync(`${dir}/${dirname}`, { recursive: true })
+                    config.dirnames.map(async dirname => {                       
+                      await fs.mkdir(`${dir}/${dirname}`, { recursive: true }, async function (err){
+                        if(err){
+                        }
+                      })                       
                     })
                   )
                 }
                 //////// write base64 string as image,video,audio,document ////////////////
-                await fs.writeFile(dir + mediaPath + timestamp + data.extension, base64String, { encoding: 'base64' }, async function (err) {
+                await fs.writeFile(dir + mediaPath + timestamp +"."+ data.extension, base64String, { encoding: 'base64' }, async function (err) {
                   if (err) {
                     const deleteMessage = await chatMessages.destroy({
                       where: {
@@ -267,7 +391,7 @@ module.exports = function (io) {
                       options.pdf = true;  ////////// here we are generating thumb of pdf and for documents such as word,excel we convert them to pdf and then generate thumb of pdf
                       options.pdf_path = dir + mediaPath
                     }
-                    if (!filePreview.generateSync(dir + mediaPath + timestamp + data.extension, dir + '/thumbnails/' + timestamp + '.png', options)) {
+                    if (!filePreview.generateSync(dir + mediaPath + timestamp, dir + '/thumbnails/' + timestamp + '.png', options)) {
                     } else {
 
                       if (data.extension != '.pdf' && data.type == 7) {  //////// remove pdf file generated from other document
@@ -276,8 +400,9 @@ module.exports = function (io) {
                     };
                   }
                 });
-                media.media = dir + mediaPath + timestamp + data.extension;
-                media.thumbnail = dir + '/thumbnails/' + timestamp + '.png';
+                var newDir = dir.substr("public".length,dir.length)
+                media.media = newDir + mediaPath + timestamp +"."+ data.extension;
+                media.thumbnail = newDir + '/thumbnails/' + timestamp + '.png';
                 const mediaMessage = await mediaMessages.create(media);
                 if (!mediaMessage) {
                   const deleteMessage = await chatMessages.destroy({
@@ -301,8 +426,48 @@ module.exports = function (io) {
                 requestData.actualMessageId = data.actualMessageId
 
               }
+              requestData.usertype = data.usertype;
               const messageDetail = await messageDetails(requestData);
+              var toUser;
+              if(data.usertype == 'admin' && data.extraType != 'vendor'){
+                toUser = await users.findOne({
+                  attributes: ['deviceToken', 'platform'],
+                  where: {
+                    id: data.receiverId
+                  },
+                });
+                
+              } else{
+                toUser = await companies.findOne({
+                  attributes: ['deviceToken', 'platform'],
+                  where: {
+                    id: data.receiverId
+                  },
+                });
+              }
+              io.sockets.emit("newMessageEvent",messageDetail)
               io.sockets.in(groupId).emit('newMessage', messageDetail); // emit message in room
+              var notifData = {
+                title: "You have received a new message in contact us list. Please check , Date: "+commonMethods.formatAMPM(new Date(new Date)),
+                description: data.message,
+                userId: data.receiverId,
+                orderId: "",
+                role: data.extraType == 'vendor' ? 4 : data.usertype == 'user' ? 3 : 1 ,
+              } 
+              commonNotification.insertNotification(notifData);  
+              var notifPushUserData={
+                title:"New message",
+                description: data.message,
+                token: toUser.dataValues.deviceToken,  
+                platform: toUser.dataValues.platform,
+                userId : data.receiverId,
+                role: data.extraType == 'vendor' ? 4 : data.usertype == 'user' ? 3 : 1 ,
+                orderId: "",
+                notificationType:"CHAT_NEW_MSG",
+                status: 1,
+                readStatus: 0
+              } 
+              commonNotification.sendNotificationChat(notifPushUserData);
             }
           }
         })
@@ -323,92 +488,61 @@ module.exports = function (io) {
     */
     const messageDetails = async function (requestData) {
       const data = { ...requestData };
-      // let receiverId;
-      // const groupName = await groups.findOne({
-      //   attributes: ['name'],
-      //   where: {
-      //     id: data.groupId
-      //   }
-      // });
-      // if (groupName) {
-      //   let name = groupName.dataValues.name;
-      //   if (name.includes('-')) {                ///////// this is because we want to get receiverId  
-      //     name = name.split('-')                /////////  if it is one to one chat then we save it as user1-user2 
-      //     if (name[0] == data.senderId) {      
-      //       receiverId = name[1];
-      //     } else if (name[1] == data.senderId) {
-      //       receiverId = name[0];
-      //     } else if (name[0] != data.senderId && name[1] != data.senderId) {  /////////   if name is not like that it means it is a group
-      //       receiverId = data.groupId;
-      //     } else {
-      //       receiverId = data.groupId;
-      //     }
-      //   }
-      // }
-      const detail = await chatMessages.findOne({
-        attributes: ['id', 'senderId', 'groupId', 'actualMessageId', 'messageType', 'type', 'status', ['createdAt', 'sentAt'],
-          [sequelize.fn('IFNULL', sequelize.col('textMessages.message'), ''), 'message'],
-          [sequelize.fn('IFNULL', sequelize.col('mediaMessages.media'), ''), 'media'],
-          [sequelize.fn('IFNULL', sequelize.col('mediaMessages.thumbnail'), ''), 'thumbnail'],
-          [sequelize.literal('user.userName'), 'senderName'],
-          [sequelize.literal('user.image'), 'senderImage'],
-        ],
-        where: {
-          id: data.id
-        },
-        include: [{
-          model: textMessages,
-          attributes: [],
-        }, {
-          model: mediaMessages,
-          attributes: [],
-        }, {
-          model: users,
-          attributes: [],
-          required: true
-        }, {
-          model: messagesStatus,
-          attributes: ['deliveredAt', 'readAt', 'userId',
-            [sequelize.literal('(SELECT image from users where id= userId)'), 'image'],
-            [sequelize.literal('(SELECT userName from users where id= userId)'), 'userName']
+      
+      var detail;
+      if(requestData.usertype != 'admin'){
+        detail = await chatMessages.findOne({
+          attributes: ['id', 'senderId','adminId', 'groupId', 'actualMessageId', 'messageType', 'type', 'status', ['createdAt', 'sentAt'],
+            [sequelize.fn('IFNULL', sequelize.col('textMessages.message'), ''), 'message'],
+            [sequelize.fn('IFNULL', sequelize.col('mediaMessages.media'), ''), 'media'],
+            [sequelize.fn('IFNULL', sequelize.col('mediaMessages.thumbnail'), ''), 'thumbnail'],
+            [sequelize.literal('user.firstName'), 'senderName'],
+            [sequelize.literal('user.image'), 'senderImage'],
           ],
-
-          required: true
-        }
-        ],
-      })
-      if (detail) {
-        ///////////// if person is replying,forwarded  previous message /////////////////// 
-        if (data.actualMessageId) {
-          const actualMessage = await chatMessages.findOne({
-            attributes: ['id', 'senderId', 'groupId', 'type', 'status', ['createdAt', 'sentAt'],
-              [sequelize.fn('IFNULL', sequelize.col('textMessages.message'), ''), 'message'],
-              [sequelize.fn('IFNULL', sequelize.col('mediaMessages.media'), ''), 'media'],
-              [sequelize.fn('IFNULL', sequelize.col('mediaMessages.thumbnail'), ''), 'thumbnail'],
-              [sequelize.literal('user.userName'), 'senderName'],
-              [sequelize.literal('user.image'), 'senderImage'],
-            ],
-            where: {
-              id: data.actualMessageId
-            },
-            include: [{
-              model: textMessages,
-              attributes: [],
-            }, {
-              model: mediaMessages,
-              attributes: [],
-            }, {
-              model: users,
-              attributes: [],
-              required: true
-            }
-            ],
-          })
-          actualMessage.dataValues.messageType = detail.dataValues.messageType;
-          detail.dataValues.actualMessage = actualMessage;
-        } else {
-          detail.dataValues.actualMessage = {};
-        }
+          where: {
+            id: data.id
+          },
+          include: [{
+            model: textMessages,
+            attributes: [],
+          }, {
+            model: mediaMessages,
+            attributes: [],
+          }, {
+            model: users,
+            attributes: [],
+            required: true
+          }
+          ],
+        })
+      } else{
+        detail = await chatMessages.findOne({
+          attributes: ['id', 'senderId','adminId', 'groupId', 'actualMessageId', 'messageType', 'type', 'status', ['createdAt', 'sentAt'],
+            [sequelize.fn('IFNULL', sequelize.col('textMessages.message'), ''), 'message'],
+            [sequelize.fn('IFNULL', sequelize.col('mediaMessages.media'), ''), 'media'],
+            [sequelize.fn('IFNULL', sequelize.col('mediaMessages.thumbnail'), ''), 'thumbnail'],
+            [sequelize.literal('company.companyName'), 'senderName'],
+            [sequelize.literal('company.logo1'), 'senderImage'],
+          ],
+          where: {
+            id: data.id
+          },
+          include: [{
+            model: textMessages,
+            attributes: [],
+          }, {
+            model: mediaMessages,
+            attributes: [],
+          }, {
+            model: companies,
+            attributes: [],
+            required: true
+          }
+          ],
+        })
+      }      
+      if (detail) {     
+      console.log("=====return detail",)
         return detail;
       } else {
         return socket.emit('errorMessage', failure);
@@ -432,46 +566,85 @@ module.exports = function (io) {
           if (err) {
             return socket.emit('errorMessage', 'Invalid User');
           } else {
-            const messages = await chatMessages.findAll({
-              attributes: ['id', 'senderId', 'groupId', 'actualMessageId', 'messageType', 'type', 'status', ['createdAt', 'sentAt'],
-                [sequelize.fn('IFNULL', sequelize.col('textMessages.message'), ''), 'message'],
-                [sequelize.fn('IFNULL', sequelize.col('mediaMessages.media'), ''), 'media'],
-                [sequelize.fn('IFNULL', sequelize.col('mediaMessages.thumbnail'), ''), 'thumbnail'],
-                [sequelize.literal('user.userName'), 'senderName'],
-                [sequelize.literal('user.image'), 'senderImage'],
-              ],
-              where: {
-                groupId: groupId
-              },
-              include: [{
-                model: textMessages,
-                attributes: [],
-              }, {
-                model: mediaMessages,
-                attributes: [],
-              }, {
-                model: users,
-                attributes: [],
-              }, {
-                model: messagesStatus,
-                attributes: ['deliveredAt', 'readAt', 'userId',
-                  [sequelize.literal('(SELECT image from users where id= userId)'), 'image'],
-                  [sequelize.literal('(SELECT userName from users where id= userId)'), 'userName']
+            var messages;
+            if(data.usertype != 'admin'){
+              messages = await chatMessages.findAll({
+                attributes: ['id', 'senderId','adminId', 'groupId', 'actualMessageId', 'messageType', 'type', 'status', ['createdAt', 'sentAt'],
+                  [sequelize.fn('IFNULL', sequelize.col('textMessages.message'), ''), 'message'],
+                  [sequelize.fn('IFNULL', sequelize.col('mediaMessages.media'), ''), 'media'],
+                  [sequelize.fn('IFNULL', sequelize.col('mediaMessages.thumbnail'), ''), 'thumbnail'],
+                  [sequelize.literal('company.companyName'), 'adminName'],
+                  [sequelize.literal('company.logo1'), 'adminImage'],
+                  [sequelize.literal('user.firstName'), 'senderName'],
+                  [sequelize.literal('user.image'), 'senderImage'],
+                  
                 ],
-              }
-              ],
-
-            })
+                where: {
+                  groupId: groupId
+                },
+                include: [{
+                  model: textMessages,
+                  attributes: [],
+                }, {
+                  model: mediaMessages,
+                  attributes: [],
+                }, {
+                  model: users,
+                  attributes: [],
+                },
+                {
+                  model: companies,
+                  attributes: [],
+                }
+                ],
+  
+              })
+            }else{
+              messages = await chatMessages.findAll({
+                attributes: ['id', 'senderId','adminId', 'groupId', 'actualMessageId', 'messageType', 'type', 'status', ['createdAt', 'sentAt'],
+                  [sequelize.fn('IFNULL', sequelize.col('textMessages.message'), ''), 'message'],
+                  [sequelize.fn('IFNULL', sequelize.col('mediaMessages.media'), ''), 'media'],
+                  [sequelize.fn('IFNULL', sequelize.col('mediaMessages.thumbnail'), ''), 'thumbnail'],
+                  [sequelize.literal('company.companyName'), 'adminName'],
+                  [sequelize.literal('company.logo1'), 'adminImage'],
+                  [sequelize.literal('user.firstName'), 'senderName'],
+                  [sequelize.literal('user.image'), 'senderImage'],
+                ],
+                where: {
+                  groupId: groupId
+                },
+                include: [{
+                  model: textMessages,
+                  attributes: [],
+                }, {
+                  model: mediaMessages,
+                  attributes: [],
+                },{
+                  model: users,
+                  attributes: [],
+                },{
+                  model: companies,
+                  attributes: [],
+                }
+                ],
+  
+              })
+            }
             if (messages) {
               await Promise.all(
                 messages.map(async message => {
+                  if(message.dataValues.senderName == ""){
+                    message.dataValues.senderName = "Guest user";
+                  }
                   if (message.actualMessageId != 0) {       //  it means this is replied or forwarded message
                     const actualMessage = await chatMessages.findOne({
-                      attributes: ['id', 'senderId', 'groupId', 'type', 'messageType', 'status', ['createdAt', 'sentAt'],
+                      attributes: ['id','senderId' ,'adminId', 'groupId', 'type', 'messageType', 'status', ['createdAt', 'sentAt'],
                         [sequelize.fn('IFNULL', sequelize.col('textMessages.message'), ''), 'message'],
                         [sequelize.fn('IFNULL', sequelize.col('mediaMessages.media'), ''), 'media'],
                         [sequelize.fn('IFNULL', sequelize.col('mediaMessages.thumbnail'), ''), 'thumbnail'],
-                        [sequelize.literal('user.userName'), 'senderName'],
+                        [sequelize.literal('user.firstName'), 'senderName'],
+                        // [sequelize.fn('IFNULL', sequelize.col('user.firstName'), 'Guest user'), 'senderName'],
+
                         [sequelize.literal('user.image'), 'senderImage'],
                       ],
                       where: {
@@ -499,8 +672,11 @@ module.exports = function (io) {
               )   
 
               const sortMessages = await messages.slice().sort((a, b) => a.dataValues.sentAt - b.dataValues.sentAt); //// sort message array in asc order of message sent
+              // socket.emit('chatHistoryRes',sortMessages )
               socket.emit('chatHistory',sortMessages )
             } else {
+              // socket.emit('chatHistoryRes',[] )
+
               socket.emit('chatHistory', [])
             }
           }
@@ -523,9 +699,11 @@ module.exports = function (io) {
     Get Chat in a specific group   
     */
     socket.on('chatList', async (data) => {
-
+      
       try {
         const authToken = data.authToken;
+        let limit = 10;   // number of records per page
+        let offset = 0;
         if (!authToken) {
           return socket.emit('errorMessage', 'Please Provide JWT Token');
         }
@@ -534,20 +712,45 @@ module.exports = function (io) {
             return socket.emit('errorMessage', 'Invalid User');
           } else {
             const senderId = await common.userId(authToken);
-
-            const groups= await groupMembers.findAll({
-              attributes: ['groupId'],
+            groupMembers.findAndCountAll({
               where: {
-                userId: senderId
+                [Op.or]: [
+                  {
+                    userId: senderId,
+                  },
+                  {
+                    adminId: senderId,
+                  }
+                ]
+                
               }
             })
+            .then(async (dataCount) => {
+              let page = data.pageNumber;      // page number
+              let pages = Math.ceil(dataCount.count / limit);
+              offset = limit * (page - 1);
+              const groupsM= await groupMembers.findAll({
+                attributes: ['groupId'],
+                limit,
+                offset,
+                where: {
+                  [Op.or]: [
+                    {
+                      userId: senderId,
+                    },
+                    {
+                      adminId: senderId,
+                    }
+                  ]
+                }
+              });           
 
-            if(groups) {
+            if(groupsM) {
               const messages = [];
               await Promise.all(
-                groups.map(async group => {
+                groupsM.map(async group => {
                   const groupDetail = await groupa.findOne({
-                    attributes: ['groupName','groupIcon','createdAt'],
+                    attributes: ['groupName','groupIcon','createdBy','createdAt'],
                     where: {
                       id: group.groupId
                     },
@@ -559,27 +762,119 @@ module.exports = function (io) {
                       }
                     ]
                   })
-                  const message = await chatMessages.findOne({
-                    attributes: ['id', 'senderId', 'groupId', 'actualMessageId', 'messageType', 'type', 'status', ['createdAt', 'sentAt'],
+                  var message;
+                    message = await chatMessages.findOne({
+                      attributes: ['id', 'senderId', 'groupId', 'actualMessageId', 'messageType', 'type', 'status', ['createdAt', 'sentAt'],
+                        [sequelize.fn('IFNULL', sequelize.col('textMessages.message'), ''), 'message'],
+                        [sequelize.fn('IFNULL', sequelize.col('mediaMessages.media'), ''), 'media'],
+                        [sequelize.fn('IFNULL', sequelize.col('mediaMessages.thumbnail'), ''), 'thumbnail'],
+                        [sequelize.literal('user.firstName'), 'senderName'],
+                        [sequelize.literal('user.image'), 'senderImage'],
+                        [sequelize.literal('group.name'), 'orderid'],
+                        [sequelize.literal('group.groupIcon'), 'groupIcon'],
+                        [sequelize.literal('group.createdBy'), 'createdBy']
+  
+                      ],
+                      subQuery: false,
+                      where: {
+                       groupId: group.groupId
+                      },
+                      order: [
+                        ['createdAt', 'DESC']
+                       ],
+                      
+                      include: [
+                 
+                        {
+                          model: groupa,
+                          attributes: [],
+                        },
+                        {
+                          model: textMessages,
+                          attributes: [],
+                        },
+                        {
+                          model: groupMembers,
+                          attributes: ['userId'],
+                        }, {
+                          model: mediaMessages,
+                          attributes: [],
+                        }, {
+                          model: users,
+                          attributes: [],
+                          required: true
+                        }
+                      ],
+                    });
+
+                   var adminMsg = await chatMessages.findOne({
+                      attributes: ['id', 'senderId', 'groupId','createdAt',
+                        [sequelize.fn('IFNULL', sequelize.col('textMessages.message'), ''), 'message'],
+                      ],
+                      subQuery: false,
+                      where: {
+                       groupId: group.groupId
+                      },
+                      order: [
+                        ['createdAt', 'DESC']
+                       ],
+                      
+                      include: [
+                        {
+                          model: textMessages,
+                          attributes: [],
+                        },{
+                          model: companies,
+                          attributes: [],
+                          required: true
+                        }
+                      ],
+                    });
+                //  console.log("=====adminMsg====", adminMsg) 
+                 if(adminMsg && message){
+                  if(adminMsg.dataValues.createdAt > message.dataValues.sentAt){
+                    message.dataValues.message = adminMsg.dataValues.message;
+                    message.dataValues.sentAt = adminMsg.dataValues.createdAt;
+                  }
+                 }                                     
+                if(message && message.dataValues.senderName == ""){
+                  message.dataValues.senderName = "Guest user";
+                }
+                if(message) {
+                  message.dataValues.groupMember = groupDetail.dataValues.groupMembers;
+                  message.dataValues.actualMessage = {}
+                  messages.push(message)
+                } else {
+                  message = await chatMessages.findOne({
+                    attributes: ['id','adminId', 'groupId', 'actualMessageId', 'messageType', 'type', 'status', ['createdAt', 'sentAt'],
                       [sequelize.fn('IFNULL', sequelize.col('textMessages.message'), ''), 'message'],
                       [sequelize.fn('IFNULL', sequelize.col('mediaMessages.media'), ''), 'media'],
                       [sequelize.fn('IFNULL', sequelize.col('mediaMessages.thumbnail'), ''), 'thumbnail'],
-                      [sequelize.literal('user.userName'), 'senderName'],
-                      [sequelize.literal('user.image'), 'senderImage'],
-                      [sequelize.literal('group.groupName'), 'groupName'],
-                      [sequelize.literal('group.groupIcon'), 'groupIcon']
+                      [sequelize.literal('company.companyName'), 'senderName'],
+                      [sequelize.literal('company.logo1'), 'senderImage'],
+                      [sequelize.literal('group.name'), 'orderId'],
+                      [sequelize.literal('group.groupIcon'), 'groupIcon'],
+                      [sequelize.literal('group.createdBy'), 'createdBy']
 
                     ],
                     subQuery: false,
-
+                    // where: {
+                    //  groupId: group.groupId
+                    // },
                     where: {
-                     // '$chatMessage.createdAt$': null,
-      
-                     // [Op.and]: sequelize.literal(`'${senderId}' in (select userId from groupMembers where groupId = chatMessages.groupId)`)
-                     groupId: group.groupId
+                      [Op.and]: [
+                        {
+                          groupId: group.groupId
+                        },
+                        {
+                          adminId: {
+                            [Op.ne]: senderId
+                          },
+                        }
+                      ]
                     },
                     order: [
-                      ['id', 'DESC']
+                      ['createdAt', 'DESC']
                      ],
                     
                     include: [
@@ -599,106 +894,71 @@ module.exports = function (io) {
                         model: mediaMessages,
                         attributes: [],
                       }, {
-                        model: users,
+                        model: companies,
                         attributes: [],
-                        required: true
-                      }, {
-                        model: messagesStatus,
-                        attributes: ['deliveredAt', 'readAt', 'userId',
-                          [sequelize.literal('(SELECT image from users where id= messagesStatuses.userId)'), 'image'],
-                          [sequelize.literal('(SELECT userName from users where id= messagesStatuses.userId)'), 'userName']
-                        ],
                         required: true
                       }
                     ],
-                  })
-
-                if(message) {
-                  message.dataValues.groupMember = groupDetail.dataValues.groupMembers;
-                  message.dataValues.actualMessage = {}
-                  messages.push(message)
-                } else {
-              
-                messages.push({
-                    "id": "",
-                    "senderId": "",
-                    "groupId": group.groupId,
-                    "actualMessageId": "0",
-                    "messageType": 0,
-                    "type": 0,
-                    "status": 0,
-                    "sentAt": groupDetail.dataValues.createdAt,
-                    "message": "",
-                    "media": "",
-                    "thumbnail": "",
-                    "senderName": "",
-                    "senderImage": "",
-                    "groupName": groupDetail.dataValues.groupName,
-                    "groupIcon": groupDetail.dataValues.groupIcon,
-                    "groupMember": groupDetail.dataValues.groupMembers,
-                    "messagesStatuses": [],
-                    "actualMessage": {}
-                })
-                }
-                })
-              )
-
-         
-            if (messages) {
-              await Promise.all(
-                messages.map(async message => {
-                //  message.actualMessage = {}
-                 // console.log(message)
-                  if (message.actualMessageId != 0) {       //  it means this is replied or forwarded message
-                    const actualMessage = await chatMessages.findOne({
-                      attributes: ['id', 'senderId', 'groupId', 'type', 'messageType', 'status', ['createdAt', 'sentAt'],
-                        [sequelize.fn('IFNULL', sequelize.col('textMessages.message'), ''), 'message'],
-                        [sequelize.fn('IFNULL', sequelize.col('mediaMessages.media'), ''), 'media'],
-                        [sequelize.fn('IFNULL', sequelize.col('mediaMessages.thumbnail'), ''), 'thumbnail'],
-                        [sequelize.literal('user.userName'), 'senderName'],
-                        [sequelize.literal('user.image'), 'senderImage'],
-                      ],
-                      where: {
-                        id: message.actualMessageId
-                      },
-                      include: [{
+                  });
+                  var adminMsg = await chatMessages.findOne({
+                    attributes: ['id', 'senderId', 'groupId','createdAt',
+                      [sequelize.fn('IFNULL', sequelize.col('textMessages.message'), ''), 'message'],
+                    ],
+                    subQuery: false,
+                    where: {
+                      [Op.and]: [
+                        {
+                          groupId: group.groupId
+                        },
+                        {
+                          adminId: senderId,
+                        }
+                      ]
+                    },
+                    order: [
+                      ['createdAt', 'DESC']
+                     ],
+                    
+                    include: [
+                      {
                         model: textMessages,
                         attributes: [],
-                      }, {
-                        model: mediaMessages,
-                        attributes: [],
-                      }, {
-                        model: users,
+                      },{
+                        model: companies,
                         attributes: [],
                         required: true
-                      },
-                       {
-                        model: groupa,
-                        attributes: ['groupName'],
-                      },
-                      ],
-                    })
-                    if (actualMessage) {
-                      message.dataValues.actualMessage = actualMessage;
+                      }
+                    ],
+                  });
+                  if(adminMsg && message){
+                    if(adminMsg.dataValues.createdAt > message.dataValues.sentAt){
+                      message.dataValues.message = adminMsg.dataValues.message;
+                      message.dataValues.sentAt = adminMsg.dataValues.createdAt;
                     }
-                  } 
-                 else {
-                  // console.log(message)
-                   message.actualMessage = {};
-                 
-                 }
-                 if(message.sentAt) {
+                  }     
+                  if(message)
+                    messages.push(message)
+                }
+
+                })
+              )
+         
+            if (messages) {
+              
+              await Promise.all(
+                messages.map(async message => {
+                 if(message && message.sentAt) {
                    message.actualTime = message.sentAt;
                  }
-                 if(message.dataValues) {
+                 if(message && message.dataValues) {
                   message.actualTime = message.dataValues.sentAt;
                  }
 
                 })
               )
              let sortMessages = await messages.slice().sort(
-               (a, b) => b.actualTime - a.actualTime); //// sort message array in asc order of message sent
-              socket.emit('chatList', sortMessages)
+               (a, b) =>  b.actualTime - a.actualTime); //// sort message array in asc order of message sent
+              socket.emit('chatList', {msg: sortMessages, page: pages,count: dataCount.count})
 
             }
 
@@ -706,6 +966,8 @@ module.exports = function (io) {
               socket.emit('chatList', [])
 
             }
+          })
+
 
           }
         })
@@ -727,72 +989,72 @@ module.exports = function (io) {
   */
 
     socket.on('deliveredMessage', async (data) => {
-      try {
-        const { authToken, messageId, groupId } = data;
+      // try {
+      //   const { authToken, messageId, groupId } = data;
 
-        if (!authToken) {
-          return socket.emit('errorMessage', 'Please Provide JWT Token');
-        }
-        if (!messageId) {
-          return socket.emit('errorMessage', 'Message is required');
-        }
-        if (!groupId) {
-          return socket.emit('errorMessage', 'Group is required');
-        }
-        jwt.verify(authToken, config.jwtToken, async function (err) {
-          if (err) {
-            return socket.emit('errorMessage', 'Invalid User');
-          } else {
-            const senderId = await common.userId(authToken);
-            const message = await messagesStatus.findOne({
-              attributes: ['id'],
-              where: {
-                messageId: messageId
-              }
-            })
+      //   if (!authToken) {
+      //     return socket.emit('errorMessage', 'Please Provide JWT Token');
+      //   }
+      //   if (!messageId) {
+      //     return socket.emit('errorMessage', 'Message is required');
+      //   }
+      //   if (!groupId) {
+      //     return socket.emit('errorMessage', 'Group is required');
+      //   }
+      //   jwt.verify(authToken, config.jwtToken, async function (err) {
+      //     if (err) {
+      //       return socket.emit('errorMessage', 'Invalid User');
+      //     } else {
+      //       const senderId = await common.userId(authToken);
+      //       const message = await messagesStatus.findOne({
+      //         attributes: ['id'],
+      //         where: {
+      //           messageId: messageId
+      //         }
+      //       })
 			
-            const updateMessage = await chatMessages.update({
-              status: 2,                     ////////////// 2 = delivered
-            }, {
-              where: {
-                id: {
-                  [Op.lte]: messageId
-                },
-                senderId: {
-                  [Op.ne]: senderId
-                },
-                groupId: groupId
-              }
-            })
-			if(message){
-            const update = await messagesStatus.update({
-              deliveredAt: common.timestamp(),
-              updatedAt: common.timestamp()
-            },
-              {
-                where: {
-                  id: {
-                    [Op.lte]: message.dataValues.id
-                  },
-                  userId: senderId
-                }
-              })
-			}else{
-				return socket.emit('errorMessage', 'Invalid Message ID');
-			}	
-            socket.broadcast.to(groupId).emit('deliveredMessage', { messageId: messageId });
-          }
-        })
-      } catch (e) {
-        if (err.hasOwnProperty('original')) {
-          errorMessage = err.original.sqlMessage;
-        } else if (err.hasOwnProperty('message')) {
-          errorMessage = err.message;
-        } else {
-          errorMessage = failure;
-        }
-        return socket.emit('errorMessage', errorMessage);
-      }
+      //       const updateMessage = await chatMessages.update({
+      //         status: 2,                     ////////////// 2 = delivered
+      //       }, {
+      //         where: {
+      //           id: {
+      //             [Op.lte]: messageId
+      //           },
+      //           senderId: {
+      //             [Op.ne]: senderId
+      //           },
+      //           groupId: groupId
+      //         }
+      //       })
+			// if(message){
+      //       const update = await messagesStatus.update({
+      //         deliveredAt: common.timestamp(),
+      //         updatedAt: common.timestamp()
+      //       },
+      //         {
+      //           where: {
+      //             id: {
+      //               [Op.lte]: message.dataValues.id
+      //             },
+      //             userId: senderId
+      //           }
+      //         })
+			// }else{
+			// 	return socket.emit('errorMessage', 'Invalid Message ID');
+			// }	
+      //       socket.broadcast.to(groupId).emit('deliveredMessage', { messageId: messageId });
+      //     }
+      //   })
+      // } catch (e) {
+      //   if (err.hasOwnProperty('original')) {
+      //     errorMessage = err.original.sqlMessage;
+      //   } else if (err.hasOwnProperty('message')) {
+      //     errorMessage = err.message;
+      //   } else {
+      //     errorMessage = failure;
+      //   }
+      //   return socket.emit('errorMessage', errorMessage);
+      // }
     })
 
 
@@ -801,115 +1063,161 @@ module.exports = function (io) {
    */
 
     socket.on('readMessage', async (data) => {
-      try {
-        const { authToken, messageId, groupId } = data;
+      // try {
+      //   const { authToken, messageId, groupId } = data;
 
-        if (!authToken) {
-          return socket.emit('errorMessage', 'Please Provide JWT Token');
-        }
-        if (!messageId) {
-          return socket.emit('errorMessage', 'Message is required');
-        }
-        if (!groupId) {
-          return socket.emit('errorMessage', 'Group is required');
-        }
-        jwt.verify(authToken, config.jwtToken, async function (err) {
-          if (err) {
-            return socket.emit('errorMessage', 'Invalid User');
-          } else {
-            const senderId = await common.userId(authToken);
-            const message = await messagesStatus.findOne({
-              attributes: ['id'],
-              where: {
-                messageId: messageId
-              }
-            })
+      //   if (!authToken) {
+      //     return socket.emit('errorMessage', 'Please Provide JWT Token');
+      //   }
+      //   if (!messageId) {
+      //     return socket.emit('errorMessage', 'Message is required');
+      //   }
+      //   if (!groupId) {
+      //     return socket.emit('errorMessage', 'Group is required');
+      //   }
+      //   jwt.verify(authToken, config.jwtToken, async function (err) {
+      //     if (err) {
+      //       return socket.emit('errorMessage', 'Invalid User');
+      //     } else {
+      //       const senderId = await common.userId(authToken);
+      //       const message = await messagesStatus.findOne({
+      //         attributes: ['id'],
+      //         where: {
+      //           messageId: messageId
+      //         }
+      //       })
 
-            const updateMessage = await chatMessages.update({
-              status: 3,                     ////////////// 3 = read
-            }, {
-              where: {
-                id: {
-                  [Op.lte]: messageId
-                },
-                senderId: {
-                  [Op.ne]: senderId
-                },
-                groupId: groupId
-              }
-            })
-            const update = await messagesStatus.update({
-              readAt: common.timestamp(),
-              updatedAt: common.timestamp()
-            },
-              {
-                where: {
-                  id: {
-                    [Op.lte]: message.dataValues.id
-                  },
-                  userId: senderId
-                }
-              })
-            socket.broadcast.to(groupId).emit('readMessage', { messageId: messageId });
-          }
-        })
-      } catch (e) {
-        if (err.hasOwnProperty('original')) {
-          errorMessage = err.original.sqlMessage;
-        } else if (err.hasOwnProperty('message')) {
-          errorMessage = err.message;
-        } else {
-          errorMessage = failure;
-        }
-        return socket.emit('errorMessage', errorMessage);
-      }
+      //       const updateMessage = await chatMessages.update({
+      //         status: 3,                     ////////////// 3 = read
+      //       }, {
+      //         where: {
+      //           id: {
+      //             [Op.lte]: messageId
+      //           },
+      //           senderId: {
+      //             [Op.ne]: senderId
+      //           },
+      //           groupId: groupId
+      //         }
+      //       })
+      //       const update = await messagesStatus.update({
+      //         readAt: common.timestamp(),
+      //         updatedAt: common.timestamp()
+      //       },
+      //         {
+      //           where: {
+      //             id: {
+      //               [Op.lte]: message.dataValues.id
+      //             },
+      //             userId: senderId
+      //           }
+      //         })
+      //       socket.broadcast.to(groupId).emit('readMessage', { messageId: messageId });
+      //     }
+      //   })
+      // } catch (e) {
+      //   if (err.hasOwnProperty('original')) {
+      //     errorMessage = err.original.sqlMessage;
+      //   } else if (err.hasOwnProperty('message')) {
+      //     errorMessage = err.message;
+      //   } else {
+      //     errorMessage = failure;
+      //   }
+      //   return socket.emit('errorMessage', errorMessage);
+      // }
     })
     /*
     Clear Chat in a specific group by specific user 
     */
     socket.on('clearChat', async (data) => {
-      try {
-        const chatExists = await clearedMessages.findOne({
-          attributes: ['id'],
-          where: {
-            groupId: data.groupId,
-            userId: data.userId
-          }
-        })
-        if (chatExists) {
-          const update = await clearedMessages.update({
-            messageId: data.messageId,
-            updatedAt: common.timestamp()
-          },
-            {
-              returning: true,
-              where: {
-                id: chatExists.dataValues.id
-              }
-            })
-          if (update) {
-            socket.emit('clearChat', { message: 'Chat Cleared!!!' })
-          }
-        } else {
-          const clearData = {};
-          clearData.groupId = data.groupId;
-          clearData.userId = data.userId;
-          clearData.messageId = data.messageId;
-          const clear = await clearedMessages.create(clearData);
-          if (clear) {
-            socket.emit('clearChat', { message: 'Chat Cleared!!!' })
-          }
-        }
-      } catch (err) {
-        if (err.hasOwnProperty('original')) {
-          errorMessage = err.original.sqlMessage;
-        } else if (err.hasOwnProperty('message')) {
-          errorMessage = err.message;
-        } else {
-          errorMessage = failure;
-        }
-        return socket.emit('errorMessage', errorMessage);
+      // try {
+      //   const chatExists = await clearedMessages.findOne({
+      //     attributes: ['id'],
+      //     where: {
+      //       groupId: data.groupId,
+      //       userId: data.userId
+      //     }
+      //   })
+      //   if (chatExists) {
+      //     const update = await clearedMessages.update({
+      //       messageId: data.messageId,
+      //       updatedAt: common.timestamp()
+      //     },
+      //       {
+      //         returning: true,
+      //         where: {
+      //           id: chatExists.dataValues.id
+      //         }
+      //       })
+      //     if (update) {
+      //       socket.emit('clearChat', { message: 'Chat Cleared!!!' })
+      //     }
+      //   } else {
+      //     const clearData = {};
+      //     clearData.groupId = data.groupId;
+      //     clearData.userId = data.userId;
+      //     clearData.messageId = data.messageId;
+      //     const clear = await clearedMessages.create(clearData);
+      //     if (clear) {
+      //       socket.emit('clearChat', { message: 'Chat Cleared!!!' })
+      //     }
+      //   }
+      // } catch (err) {
+      //   if (err.hasOwnProperty('original')) {
+      //     errorMessage = err.original.sqlMessage;
+      //   } else if (err.hasOwnProperty('message')) {
+      //     errorMessage = err.message;
+      //   } else {
+      //     errorMessage = failure;
+      //   }
+      //   return socket.emit('errorMessage', errorMessage);
+      // }
+    });
+    /*
+    Get Admin data for chat   
+    */
+   socket.on('getAdmin', async (data) => {
+    try {
+      const { authToken } = data;
+      if (!authToken) {
+        return socket.emit('errorMessage', 'Please Provide JWT Token');
       }
-    })
-  })
+      const adminData = await companies.findAll({
+        attributes: ['id','companyName','logo1', 'email', "phoneNumber"],
+        where: {
+          role: 1
+        }
+      });
+      var resData = [];
+      adminData.map(ele=>{
+       var data ={
+          id: ele.id,
+          name: ele.companyName,
+          image: ele.logo1,
+          email: ele.email,
+          phone: ele.phoneNumber
+        }
+        resData.push(data)
+      })
+      if(adminData){
+        socket.emit('getAdmin',resData )
+      }else{
+        socket.emit('getAdmin',[] )
+      }
+
+    }catch (err) {
+      if (err.hasOwnProperty('original')) {
+        errorMessage = err.original.sqlMessage;
+      } else if (err.hasOwnProperty('message')) {
+        errorMessage = err.message;
+      } else {
+        errorMessage = failure;
+      }
+      return socket.emit('errorMessage', errorMessage);
+    }
+   });
+  });
+
+   
+
 }    
