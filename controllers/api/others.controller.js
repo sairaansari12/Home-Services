@@ -1,40 +1,94 @@
 const express = require('express');
 const app = express();
 
+CONTACTUS = db.models.contactus;
+FAQ = db.models.faq;
+FAQCAT = db.models.faqCategory;
 
 
+app.get('/getFaq', checkAuth, async (req, res, next) => {
+  try {
+    var params = req.query
+    var page = 1
+    var limit = 50
+    var filterCat = ""
 
-app.get('/getFaq', checkAuth,async (req, res, next) => {
-    try{
-      var params=req.query
-      var page =1
-      var limit =50
-      if(params.page) page=params.page
-      if(params.limit) limit=parseInt(params.limit)
-      var offset=(page-1)*limit
-     
-     
-      //Get All Categories
-      var findData=await FAQ.findAll({
-        attributes:['id','question','answer','status','language'],
-        where :{companyId :req.parentCompany},
-        order: [
-          ['createdAt','DESC']
-        ],      
-        offset: offset, 
-        limit: limit,
+    var where = { companyId: req.parentCompany }
+    if (params.page) page = params.page
+    if (params.category) filterCat = params.category
 
-        
-      })
+    if (params.limit) limit = parseInt(params.limit)
+    var offset = (page - 1) * limit
 
-      if(findData.length>0) return responseHelper.post(res, appstrings.success,findData, 200);
-      return responseHelper.post(res, appstrings.no_record,{}, 204);
 
- }
+    if (filterCat != "")
+      where.faqCategory = filterCat
+    //Get All Categories
+    var findData = await FAQ.findAll({
+      attributes: ['id', 'question', 'answer', 'status', 'language'],
+      where: where,
+      order: [
+        ['createdAt', 'DESC']
+      ],
+      offset: offset,
+      limit: limit,
+
+
+    })
+    var category = await FAQCAT.findAll({ attributes: ['id', 'catName'], where: { companyId: req.parentCompany } })
+
+    var dataToSend = {}
+    dataToSend.category = category
+    dataToSend.data = findData
+
+    return responseHelper.post(res, appstrings.success, dataToSend, 200);
+
+  }
   catch (e) {
     return responseHelper.error(res, e.message, 400);
   }
-      
+
+
+});
+app.post('/contactus', checkAuth, async (req, res, next) => {
+  try {
+
+    var params = req.body
+    let responseNull = commonMethods.checkParameterMissing([params.email, params.query])
+    if (responseNull) return responseHelper.post(res, appstrings.required_field, null, 400);
+
+
+    //Get All Categories
+    const findData = await CONTACTUS.create({
+      email: params.email,
+      query: params.query,
+      phoneNumber: params.phoneNumber,
+      userId: req.id,
+
+    })
+
+
+
+    var notifUserData = {
+      title: appstrings.contact_title + " , Date: " + commonMethods.formatAMPM(new Date()),
+      description: appstrings.contact_title + " Info : " + commonMethods.short(params.query, 70),
+      userId: req.parentCompany,
+      orderId: "",
+      role: 1
+    }
+
+    if (findData) {
+      commonNotification.insertNotification(notifUserData)
+
+      return responseHelper.post(res, appstrings.query_save, null);
+    }
+    else return responseHelper.post(res, appstrings.oops_something, null, 400);
+
+  }
+  catch (e) {
+    return responseHelper.error(res, e.message, 400);
+  }
+
 
 });
 

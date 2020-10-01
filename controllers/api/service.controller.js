@@ -554,5 +554,35 @@ let responseNull=  commonMethods.checkParameterMissing([id])
 
 });
 
+app.get('/searchService', checkAuth, async (req, res, next) => {
+  try {
+    var searchData = req.query.search;
+    console.log("...............", searchData)
+    //Search vendor
+    var serviceData = await SERVICES.findAll({
+      attributes: ['id','name', 'icon','thumbnail','categoryId'],
+      where: {
+        name: {
+          [Op.like]: '%' + searchData + '%'
+        }
+      },
+      order: [
+        ['createdAt', 'ASC']
+      ],
+    });
+    
+    serviceData = JSON.parse(JSON.stringify(serviceData));
+    if (serviceData.length > 0)
+      return responseHelper.post(res, appstrings.success, {serviceData: serviceData });
+
+    else return responseHelper.post(res, appstrings.no_record, null, 204);
+
+  }
+  catch (e) {
+    return responseHelper.error(res, e.message, 400);
+  }
+
+
+});
 
 module.exports = app;

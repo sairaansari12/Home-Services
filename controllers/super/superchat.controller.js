@@ -2,17 +2,25 @@
 const express = require('express');
 const app     = express();
 
-
+const jwt = require('jsonwebtoken');
 
 app.get('/',superAuth, async (req, res, next) => {
     
 try{
+  const credentials = {
+    phoneNumber: req.session.userData.phoneNumber,
+    companyId:   req.companyId,
+    countryCode: req.session.userData.countryCode,
+    userType: req.session.userData.type,
+    id : req.session.userData.id
+  };
+  authToken = jwt.sign(credentials, config.jwtToken, { algorithm: 'HS256', expiresIn: config.authTokenExpiration });
   
-        return res.render('super/chat/chatListing.ejs',{});
+    return res.render('super/chat/chatListing.ejs',{token: authToken, id: req.id});
 
-      } catch (e) {
-        return responseHelper.error(res, e.message, 400);
-      }
+  } catch (e) {
+    return responseHelper.error(res, e.message, 400);
+  }
 
 
 });

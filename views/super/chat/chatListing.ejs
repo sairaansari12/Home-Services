@@ -1,155 +1,442 @@
 <!-- AUI Framework -->
 <!DOCTYPE html>
-    <html>
-   <%-include ('../partials/header')%>
-    <body style="overflow: hidden;">
-        
+<html>
+<%-include ('../partials/header')%>
 
-       
+<body style="overflow: hidden;">
+    <div id="page-wrapper" class="demo-example">
+        <!-- #page-header -->
+        <%-include ('../partials/side_bar')%>
+        <!-- #page-sidebar -->
+        <div id="page-content-wrapper">
+            <div id="page-title">
 
-        <div id="page-wrapper" class="demo-example">
-
-           
-
-            <!-- #page-header -->
-
-            <%-include ('../partials/side_bar')%>
-            <!-- #page-sidebar -->
-            <div id="page-content-wrapper">
-                <div id="page-title">
-
-<h3>
-    <div class="bg-gray text-transform-upr font-size-15 font-bold primary-font pad10A">chat Listing</div>
-    
-</h3>
-         
-
-<div id="breadcrumb-right">
-                        
-    <div class="float-right">
-       
-
-        <div class="dropdown">
-            <a href="<%-superadminpath%>banner/add" class="btn medium primary-bg " title="Example dropdown" >
-                <span class="button-content">
-                    <i class="glyph-icon icon-plus float-left"></i>
-                    New Thread
-                   
-                </span>
-            </a>
-           
-        </div>
-    </div>
-</div>
-</div><!-- #page-title -->
-<div id="page-content">
-    
-
-<%-include ('../partials/flashMessage')%>
-
-
-<div class="scrollable-content col-md-11 scrollable">
-
-    <ul class="no-border messages-box">
-
-<%for (var t=0;t<15;t++){%>
-
-        <li onclick="getHistory()">
-            <div class="messages-img">
-                <img width="32" src="assets/images/gravatar.jpg" alt="" />
-            </div>
-            <div class="messages-content">
-                <div class="messages-title">
-                    <i class="glyph-icon icon-warning-sign font-red"></i>
-                    <a href="javascript:;" title="Message title">Important message</a>
-                    <div class="messages-time">
-                        3 hr ago
-                        <span class="glyph-icon icon-time"></span>
+                <h3>
+                    <div class="bg-gray text-transform-upr font-size-15 font-bold primary-font pad10A">chat Listing
                     </div>
+
+                </h3>
+
+            </div><!-- #page-title -->
+            <div id="page-content">
+
+                <%-include ('../partials/flashMessage')%>
+                <div id="chatListDiv" class="scrollable-content col-md-11 scrollable">
+                    <ul class="no-border messages-box" id="chatlist">
+
+                    </ul>
+
                 </div>
-                <div class="messages-text">
-                    This message must be read immediately because of it's high importance...
-                </div>
-            </div> 
-        </li>
-      
+                <!-- .chat history -->
+                <div id="chatHistoryDiv" class="content-box bg-white">
+                    <h3 class="content-box-header ui-state-default  primary-bg">
+                        <div class="glyph-icon icon-separator transparent">
+                            <i class="glyph-icon icon-comments font-white"></i>
+                        </div>
+                        <span class="pad0L">Chat box</span>
+                    </h3>
+                    <div class="content-box-wrapper">
+                        <div class="scrollable-content scrollable-large">
+                
+                            <ul class="chat-box" id="list"></ul>
+                
+                        </div>
+                    </div>
+                    <div class="button-pane pad10A">
+                        <div class="form-row pad0B">
+                            <div class="form-input col-lg-12">
+                                <div class="input-append-wrapper input-append-right">
+                                    <a href="javascript:;" class="btn input-append primary-bg tooltip-button" title="Reply">
+                                        <i class="glyph-icon icon-mail-reply"></i>
+                                    </a>
+                                    <div class="append-right">
+                                        <input type="text" placeholder="Say something here..." name="" id="" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>               
+            <!-- chat history end -->
+
+            </div><!-- #page-content -->
+            
+            
+        </div><!-- #page-main -->
+
         
-<%}%>
 
-      
-    </ul>
+<!-- chat history -->
+    </div><!-- #page-wrapper -->
 
-</div>
-
-                	</div><!-- #page-content -->
-            </div><!-- #page-main -->
-        </div><!-- #page-wrapper -->
-
-    </body>
+</body>
 </html>
-
-
 
 
 <script>
 
 
-function getHistory()
-{
+    function getHistory() {
 
-  window.location.href="<%-superadminpath%>chat/chathistory"
+        window.location.href = "<%-superadminpath%>chat/chathistory"
 
-}
+    }
 
-    function StatusChange(id,status)
-    {
+    function StatusChange(id, status) {
 
-        var confirm1= (status=="1") ? "Inactive" : "Active"
-        if( confirm('Are you sure you want to '+confirm1+' this?'))
-        {
-        $.ajax({
-            type: 'POST',
-            url: '<%-superadminpath%>banner/status',
-            dataType: 'json',
-            data: {'id':id,'status':status},
-            success: function (response) {
-                if (response.code == '200') {
-                   // $('#block_status_'+id).html('');
+        var confirm1 = (status == "1") ? "Inactive" : "Active"
+        if (confirm('Are you sure you want to ' + confirm1 + ' this?')) {
+            $.ajax({
+                type: 'POST',
+                url: '<%-superadminpath%>banner/status',
+                dataType: 'json',
+                data: { 'id': id, 'status': status },
+                success: function (response) {
+                    if (response.code == '200') {
+                        // $('#block_status_'+id).html('');
 
-                    if(status == "1")
-                    {
-                       $('#block_status_'+id).hide()
-                       $('#unblock_status_'+id).show()
-                       showToastSuccess( "Banner inactive successfully")
+                        if (status == "1") {
+                            $('#block_status_' + id).hide()
+                            $('#unblock_status_' + id).show()
+                            showToastSuccess("Banner inactive successfully")
 
 
-                    }else{
-                         
-                         $('#block_status_'+id).show()
-                        $('#unblock_status_'+id).hide()
-                       // $('#block_status_'+id).append("<i  class='fa fa-truck'  aria-hidden='true'></i>")
-                       showToastSuccess( "banner active successfully")
+                        } else {
+
+                            $('#block_status_' + id).show()
+                            $('#unblock_status_' + id).hide()
+                            // $('#block_status_'+id).append("<i class='fa fa-truck' aria-hidden='true'></i>")
+                            showToastSuccess("banner active successfully")
+
+                        }
 
                     }
-                    
-                }
-                else{
-                   
+                    else {
+
+                        showToastError(response.message)
+                    }
+                },
+
+                error: function (response) {
                     showToastError(response.message)
+
                 }
-            },
-
-            error :function(response)
-            {
-                showToastError(response.message)
-
-            }
-        });
+            });
+        }
     }
-    }
-   
+
     $('#compId').val(getURLParameter('compId'))
 
-    
 
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
+<script>
+    //live link = http://51.79.40.224:9070/
+    var socket = new io('<%-config.SOCKET_URL%>');
+    var groupId, base64Img, extension, currentPage = 1, totalPage, totalRows, isVendor = false, receiverId;
+    var chatListData = [];
+    socket.on("newMessageEvent",(data)=>{
+        var pageData = {
+            pageNumber: currentPage
+        }
+        getChatlist(pageData);
+    })
+    socket.on("newMessage", (data)=>{  
+        var pageData = {
+            pageNumber: currentPage
+        }
+        getChatlist(pageData);     
+        if(data.senderId)
+            var odd = data.senderId == '<%-id%>' ? true : false;
+        else     
+            var odd = data.adminId == '<%-id%>' ? true : false;
+        var html = "";
+        var sentAt = convertTime(data.sentAt);
+        if(odd){
+            html = ` <li class="clearfix odd">
+                    <div class="chat-avatar">
+                        <img src="/dist/assets/images/user.jpg" class="rounded" alt="${data.senderName ? data.senderName : data.adminName}" />
+                        <i>${sentAt}</i>
+                    </div>
+                    <div class="conversation-text">
+                        <div class="ctext-wrap">
+                            <i>${data.senderName ? data.senderName : data.adminName}</i>`;
+            if(data.type == 1){
+                html = html + `<p>
+                            ${data.message}
+                            </p>
+                        </div>
+                    </div>          
+                </li>`
+            }  else{
+                html = html + `<img style="width: 345px;height: 260px;" src="${data.media}" />
+                        </div>
+                    </div>                              
+                </li>`
+            }
+        } else{
+            html = ` <li class="clearfix">
+                    <div class="chat-avatar">
+                        <img src="/dist/assets/images/user.jpg" class="rounded" alt="${data.senderName ? data.senderName : data.adminName}" />
+                        <i>${sentAt}</i>
+                    </div>
+                    <div class="conversation-text">
+                        <div class="ctext-wrap">
+                            <i>${data.senderName ? data.senderName : data.adminName}</i>`;
+            if(data.type == 1){
+                html = html + `<p>
+                            ${data.message}
+                            </p>
+                        </div>
+                    </div>          
+                </li>`
+            }  else{
+                html = html + `<img style="width: 345px;height: 260px;" src="${data.media}" />
+                        </div>
+                    </div>                              
+                </li>`
+            }
+        } 
+        
+      $('#list').append($(html));
+
+    })
+   
+    $(document).ready(function(){  
+        $("#pagenumber").html(currentPage);
+        $("#pagination1").hide();
+      $("#chat img:last-child").remove();
+        $("#right-chat").hide(); 
+        var pageData = {
+            pageNumber: currentPage
+        }
+        // $('#loading1').show();
+        $("#chatHistoryDiv").hide();
+        $('#chatListDiv').show();
+        getChatlist(pageData);
+    });
+    
+    
+    $('form').submit(function(e) {
+      e.preventDefault();
+      $("#img img:last-child").remove();
+      if(base64Img && base64Img != ""){  
+        socket.emit("sendMessage", {authToken: '<%-token%>' , type: 2, media: base64Img,extension:extension, usertype: "admin",extraType: isVendor != "false" ? "vendor" : "", groupId: groupId, receiverId: receiverId});
+        base64Img = "";
+        
+      }else{
+          if($('#msg').val() && $('#msg').val().trim() != ""){
+            socket.emit("sendMessage", {authToken: '<%-token%>' , type: 1, message: $('#msg').val(), usertype: "admin",extraType: isVendor != "false" ? "vendor" : "", groupId: groupId, receiverId: receiverId});
+           
+            
+        }
+        
+      }    
+        $('#msg').val('');
+      return false;
+    });
+    function getChatlist(pageData){
+
+        socket.emit('chatList',{authToken: '<%-token%>', usertype: "admin", pageNumber: pageData.pageNumber});
+        socket.on("chatList", data=>{
+            totalPage = data.page;
+            totalRows = data.count;
+            if(totalRows > 10){
+                $("#pagination1").show();
+            }
+            chatListData = data.msg;
+            var userData = data.msg;
+            createChatList(userData, '');  
+        })
+    }
+    function createChatList(data, search){
+        var html = "";
+        if(data.length == 0 && search != "search"){
+            html = html + `<div class="no-chat">No chat found</div>`;
+            $("#search-bar").hide();
+            $("#contact").hide();
+        }else{
+            $("#search-bar").show();
+            $("#contact").show();
+            if(data.length == 0 )
+                html = html + `<div class="no-chat">No user found</div>`;
+        }
+        for(var k=0;k<data.length;k++){
+            var id = data[k].adminId ? data[k].adminId : data[k].orderid;
+            var Vendor = data[k].adminId ? true : false;
+            html = html + `<li onclick=""showmsg('${id}','${Vendor}')"">
+                            <div class="messages-img">
+                                <img width="32" src="assets/images/gravatar.jpg" alt="" />
+                            </div>
+                            <div class="messages-content">
+                                <div class="messages-title">
+                                    <a href="javascript:;" title="Message title">${data[k].senderName ? data[k].senderName : data[k].adminName}</a>
+                                    
+                                </div>
+                                <div class="messages-text">
+                                    ${data[k].message}
+                                </div>
+                            </div>
+                        </li> `  
+        }
+        $('#chatlist').html(html);
+        $('#loading1').hide();
+    }
+
+    function showmsg(id, Vendor){
+        $("#chatHistoryDiv").show();
+        $('#chatListDiv').hide();
+        isVendor = Vendor;
+        receiverId = id;
+       var singleChatList = chatListData.find(x=> x.orderid == id || x.adminId == id);
+        if(groupId){
+            var leaveRoomData = {
+                authToken: '<%-token%>',
+                receiverId: id,
+                groupId: groupId
+            }
+            socket.emit("leaveRoom", leaveRoomData);
+        }
+       var data = {
+            authToken: '<%-token%>',
+            receiverId: id,
+            groupId: singleChatList.groupId,
+            userType: "vendor"
+        }
+       socket.emit('joinRoom',data);
+       socket.on('joinRoom',(data)=>{
+           groupId = data.groupId;
+           socket.emit("chatHistory", {authToken: '<%-token%>', groupId: data.groupId, usertype: "admin"});
+           socket.on("chatHistory", (data)=>{
+               var html = "";
+               for(var i = 0 ;  i <data.length ; i++){
+                   console.log(data)
+                   var sentAt = convertTime(data[i].sentAt);
+                   if(data[i].senderId)
+                        var odd = data[i].senderId == '<%-id%>' ? true : false;
+                   else     
+                    var odd = data[i].adminId == '<%-id%>' ? true : false;
+                if(odd){
+                    html = html +  `<li class="float-left">
+                    <div class="chat-author">
+                        <img width="36" src="assets/images/gravatar.jpg" alt="" />
+                    </div>
+                    <div class="popover right no-shadow">
+                        <div class="arrow"></div>
+                        <div class="popover-content">
+                                <h3>
+                                    <a  title="Horia Simon">${data[i].senderName ? data[i].senderName : data[i].adminName}</a>
+                                    
+                                </h3>`
+                                if(data[i].type == 1){
+                                html =  html + `${data[i].message}`;
+                            }else{
+                                html = html + `<img   onError="this.onerror=null;this.src='/assets/images/no-user.png';"  style="width: 345px;height: 260px;" src="${data[i].media}" />`
+                            }
+                            html = html + `    <div class="chat-time">
+                                    <i class="glyph-icon icon-time"></i>
+                                    ${sentAt}
+                                </div>
+                        </div>
+                    </div>
+                </li>`
+                                                  
+                               
+                }else{
+                    html = html +  ` <li>
+                    <div class="chat-author">
+                        <img width="36" src="assets/images/gravatar.jpg" alt="" />
+                    </div>
+                    <div class="popover left no-shadow">
+                        <div class="arrow"></div>
+                        <div class="popover-content">
+                            <h3>
+                                <a  title="Horia Simon">${data[i].senderName ? data[i].senderName : data[i].adminName}</a>
+                                
+                            </h3>`;
+                            if(data[i].type == 1){
+                                html =  html + `${data[i].message}`;
+                            }else{
+                                html = html + `<img   onError="this.onerror=null;this.src='/assets/images/no-user.png';"  style="width: 345px;height: 260px;" src="${data[i].media}" />`
+                            }
+                            
+                            html = html +    ` <div class="chat-time">
+                                    <i class="glyph-icon icon-time"></i>
+                                    ${sentAt}
+                                </div>
+                        </div>
+                    </div>
+                </li>`
+                }
+                
+               }
+               $('#list').html(html);
+               $('#loading1').hide();
+           })
+       });
+       
+    }
+    function selectFile(){
+        $("#file-upload").click();
+    }
+    function getImage(element){
+        var img = element.files[0];
+        extension = element.files[0].name.substring(element.files[0].name.lastIndexOf('.') + 1);
+        var reader = new FileReader();  
+        reader.onloadend = function() {
+            base64Img = reader.result;
+            $("#msg").hide();
+            var html = `<img src="${base64Img}" style="width: 200px;height: 200px;" />`
+            $("#img").html(html);
+        }
+        reader.readAsDataURL(img);
+    }
+    function search(event){
+        $.ajax({
+            type: 'GET',
+            url: '<%-superadminpath %>chatListSearch?text='+event.target.value,
+            dataType: 'json',
+            success: function (response) {
+                if (response.code == '200') {
+                    var data=response.body;
+                    chatListData = data;
+                    createChatList(data, 'search');
+                }
+            },
+        });
+    }
+    function next(page){ 
+        if(page == -1 && currentPage > 1){
+            currentPage = currentPage + page;
+        } 
+        if(currentPage < totalPage){
+            if(page == 1)
+                currentPage = currentPage + page;
+            if(currentPage > -1){
+                $("#pagenumber").html(currentPage)
+                var pageData = {
+                    pageNumber: currentPage
+                }
+                getChatlist(pageData);
+            }
+        }         
+        
+    }
+    function convertTime(timeStamp){
+        var unixtimestamp = timeStamp;
+        var date = new Date(unixtimestamp*1000);
+        var year = date.getFullYear();
+        var month = date.getMonth();
+        var day = date.getDate();
+        var hours = date.getHours();
+        var minutes = date.getMinutes();
+        var newformat = hours >= 12 ? 'PM' : 'AM';  
+        hours = hours % 12;   
+        hours = hours ? hours : 12;  
+        minutes = minutes < 10 ? '0' + minutes : minutes;  
+        // var convdataTime = month+'/'+day+'/'+year+' '+hours + ':' + minutes+ ' ' + newformat;
+        var convdataTime = hours + ':' + minutes+ ' ' + newformat;
+        return convdataTime;
+    }
 </script>
