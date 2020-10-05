@@ -235,77 +235,83 @@ console.log(err)
 
 }
 
-app.post('/status',checkAuth,async(req,res,next) => { 
-    
-  var params=req.body
-  try{
-      let responseNull=  commonMethods.checkParameterMissing([params.id,params.status])
-      if(responseNull) return responseHelper.post(res, appstrings.required_field,null,400);
-     
-    
+app.post('/status', checkAuth, async (req, res, next) => {
 
-     var userData = await ORDERS.findOne({
-       where: {
-         id: params.id }
-     });
-     
-     
-     if(userData)
-     {
-     
-if(params.status=="5" && userData.dataValues.trackStatus<3 )
-return responseHelper.post(res, appstrings.job_not_completed,null,400);
+  var params = req.body
+  var show = 0
+  try {
+    let responseNull = commonMethods.checkParameterMissing([params.id, params.status])
+    if (responseNull) return responseHelper.post(res, appstrings.required_field, null, 400);
+
+    if (params.status == 5) show = 1
 
 
-  const updatedResponse = await ORDERS.update({
-       progressStatus: params.status,
-
-     },
-     {
-       where : {
-       id: userData.dataValues.id
-     }
-     });
-     
-     if(updatedResponse)
-           {
-  if(params.status==5)
-  {
-    userData=JSON.parse(JSON.stringify(userData))
-            var findData=await USER.findOne({where:{id:userData.userId}});
-       var notifPushUserData={title:userData.orderNo +appstrings.order_mark_complete+ ' on ' +commonMethods.formatAMPM(new Date),
-            description:userData.orderNo +appstrings.order_mark_complete + ' on ' +commonMethods.formatAMPM(new Date),
-            token:findData.dataValues.deviceToken,  
-                platform:findData.dataValues.platform,
-                userId :userData.userId, role :3,
-                notificationType:"ORDER_STATUS",status:5,
+    var userData = await ORDERS.findOne({
+      where: {
+        id: params.id
       }
-      
-commonNotification.insertNotification(notifPushUserData)   
- commonNotification.sendNotification(notifPushUserData)
+    });
+
+
+    if (userData) {
+
+
+      const updatedResponse = await ORDERS.update({
+        progressStatus: params.status,
+        userShow: show
+
+      },
+        {
+          where: {
+            id: userData.dataValues.id
+          }
+        });
+
+      if (updatedResponse) {
+        if (params.status == 5) {
+
+          var empId = 0
+          var assignedDatat = await ASSIGNMENT.findOne({ where: { orderId: userData.dataValues.id, jobStatus: 1 } })
+          if (assignedDatat && assignedDatat.dataValues)
+            empId = assignedDatat.dataValues.empId
+
+          ASSIGNMENT.update({ jobStatus: 3 }, { where: { empId: empId, orderId: userData.dataValues.id } });
+
+          userData = JSON.parse(JSON.stringify(userData))
+          var findData = await USER.findOne({ where: { id: userData.userId } });
+          var notifPushUserData = {
+            title: userData.orderNo + appstrings.order_mark_complete + ' on ' + commonMethods.formatAMPM(new Date),
+            description: userData.orderNo + appstrings.order_mark_complete + ' on ' + commonMethods.formatAMPM(new Date),
+            token: findData.dataValues.deviceToken,
+            platform: findData.dataValues.platform,
+            userId: userData.userId, role: 3,
+            notificationType: "ORDER_STATUS", status: 5,
+          }
+
+          commonNotification.insertNotification(notifPushUserData)
+          commonNotification.sendNotification(notifPushUserData)
+        }
+        return responseHelper.post(res, appstrings.success, null);
+      }
+      else {
+        return responseHelper.post(res, appstrings.oops_something, 400);
+
+      }
+
     }
-         return responseHelper.post(res, appstrings.success,null);
-           }
-           else{
-             return responseHelper.post(res, appstrings.oops_something,400);
-  
-           }
-     
-     }
 
-     else{
-      return responseHelper.post(res, appstrings.no_record,204);
+    else {
+      return responseHelper.post(res, appstrings.no_record, 204);
 
     }
 
-       }
-         catch (e) {
-           return responseHelper.error(res, e.message, 400);
-         }
-  
-  
-  
+  }
+  catch (e) {
+    return responseHelper.error(res, e.message, 400);
+  }
+
 });
+
 
 app.post('/paymentStatus',checkAuth,async(req,res,next) => { 
     
@@ -467,200 +473,247 @@ callback(null,error.message)
 }
 }
 
-app.get('/list',checkAuth,async (req, res) => {
-   
-    var params=req.query
-    var pStatus= await ORDERSTATUS.findAll({companyId:req.parentCompany});
+app.get('/list', checkAuth, async (req, res) => {
 
-    // var progressStatus =  ['0','1','2','3','4','5']
-  var progressStatus = pStatus
+  var params = req.query
+  var pStatus = await ORDERSTATUS.findAll({ companyId: req.parentCompany });
+  progressStatus = pStatus.map(user => user.status);
 
-    
-    var page =1
-    var limit =20
-    if(params.page) page=params.page
-    if(params.limit) limit=parseInt(params.limit)
-    if(params.progressStatus && params.progressStatus!="")  progressStatus=params.progressStatus.split(",")
+  var page = 1
+  var limit = 20
+  if (params.page) page = params.page
+  if (params.limit) limit = parseInt(params.limit)
+  if (params.progressStatus && params.progressStatus != "") progressStatus = params.progressStatus.split(",")
 
+  var offset = (page - 1) * limit
 
-    //console.log(">>>>>>>>",progressStatus)
- 
-    var offset=(page-1)*limit
-
-   
-    try {
-      var user = await ORDERS.findAll({
-      where :{userId : req.id,
-        progressStatus: { [Op.or]: progressStatus},
+  try {
+    var user = await ORDERS.findAll({
+      where: {
+        userId: req.id,
+        progressStatus: { [Op.or]: progressStatus },
 
       },
       order: [
         ['createdAt', 'DESC']],
       offset: offset, limit: limit,
-       
+
       include: [
-        {model: db.models.address , attributes: ['id','addressName','addressType','houseNo','latitude','longitude','town','landmark','city'] } ,
-        {model: COMPANY , attributes: ['address1LatLong'],required:true},
-        {model: ORDERSTATUS , attributes: ['statusName','id']},
-        {model: SUBORDERS , attributes: ['id','serviceId','quantity'],
-        include: [{
-          model: SERVICES,
-          attributes: ['id','name','description','price','icon','thumbnail','type','price','duration'],
-          required: false
-        }],
+        { model: COMPANY, attributes: ['companyName', 'latitude', 'longitude', 'logo1', 'rating', 'totalRatings'] },
+        { model: ADDRESS, attributes: ['id', 'addressName', 'addressType', 'houseNo', 'latitude', 'longitude', 'town', 'landmark', 'city'] },
+        { model: ORDERSTATUS, attributes: ['statusName', 'status'] },
+        {
+          model: PAYMENT, attributes: ['transactionStatus'], where: {
+            [Op.or]: [
 
-} ,
-      
-      
-       
-    ],
+              { paymentType: 1, transactionStatus: 1 },
+              { paymentType: 2 }
+            ]
 
+          }, requird: true
+        },
+        {
+          model: SUBORDERS, attributes: ['id', 'serviceId', 'quantity'],
+          include: [{
+            model: SERVICES,
+            attributes: ['id', 'name', 'description', 'productType', 'price', 'icon', 'thumbnail', 'type', 'price', 'duration'],
+            required: false
+          }],
 
-      });
-user=JSON.parse(JSON.stringify(user))
-      for(var t=0;t<user.length;t++)
-      {
+        },
 
-  var orderDate=new Date(user[t].createdAt)
-var today=new Date()
-var diffMins = diff_mins(today,orderDate); // milliseconds between now & Christmas
+      ],
 
-console.log("diffMins>>>>",diffMins)
-if( diffMins<30 && user[t].progressStatus<5)  user[t].cancellable=true 
-else  user[t].cancellable=false
- 
+    });
+    user = JSON.parse(JSON.stringify(user))
 
+    for (var t = 0; t < user.length; t++) {
 
-if(user[t].company && user[t].company.address1LatLong!=null)      user[t].companyAddress=JSON.parse(user[t].company.address1LatLong)
-else  user[t].companyAddress=null
-delete  user[t]['company'];
+      var orderDate = new Date(user[t].createdAt)
+      var today = new Date()
+      var diffMins = diff_mins(today, orderDate); // milliseconds between now & Christmas
 
+      if (diffMins < 30 && user[t].progressStatus < 5) user[t].cancellable = true
+      else user[t].cancellable = false
 
-}
-      
-        return responseHelper.post(res,appstrings.detail,user);
-    } catch (e) {
-      return responseHelper.error(res, e.message, 400);
-    }
-  });
+      //delete  user[t]['company'];
 
+      var quantity = 0
+      var quantityData = await SUBORDERS.findOne({
+        attributes: [[sequelize.fn('sum', sequelize.col('quantity')), 'totalQuantity']],
+        where: { orderId: user[t].id }
+      })
 
-app.get('/detail/:orderId',checkAuth,async (req, res) => {
-  var orderId=req.params.orderId
+      if (quantityData && quantityData.dataValues)
+        quantity = quantityData.dataValues.totalQuantity
+
+      user[t].totalQuantity = quantity;
+
+      //check if user already rated this order
+      var orderStatus = await SERVICERATINGS.findAll({
+        where: {
+          userId: req.id,
+          orderId: user[t].id,
   
-  let responseNull=  commonMethods.checkParameterMissing([orderId])
-  if(responseNull) return responseHelper.post(res, appstrings.required_field,null,400);
-   
-    try {
-      const orderData = await ORDERS.findOne({
-      where :{id :orderId},      
-      include: [
-        {model: db.models.address , attributes: ['id','addressName','addressType','houseNo','latitude','longitude','town','landmark','city'] } ,
-        {model: ORDERSTATUS , attributes: ['statusName','id']},
-        {model: SUBORDERS , attributes: ['id','serviceId','quantity'],
-        include: [{
-          model: SERVICES,
-          attributes: ['id','name','description','price','icon','thumbnail','type','price','duration'],
-          required: false
-        }]        
- 
-        
-    } ,
+        },
+      });
+      if(orderStatus && orderStatus.length > 0){
+        user[t].isRated = true;
+      } else{
+        user[t].isRated = false;
+      }
 
-    {model: ASSIGNMENT , attributes: ['id','jobStatus'],
-    where:{jobStatus :1},
-    required: false,
-    include: [{
-      model: EMPLOYEE,
-      attributes: ['id','firstName','lastName','countryCode','phoneNumber','image'],
-      required: false
-    }]
     }
-      
+
+    return responseHelper.post(res, appstrings.detail, user);
+  } catch (e) {
+    return responseHelper.error(res, e.message, 400);
+  }
+});
+
+
+app.get('/detail/:orderId', checkAuth, async (req, res) => {
+  var orderId = req.params.orderId
+
+  let responseNull = commonMethods.checkParameterMissing([orderId])
+  if (responseNull) return responseHelper.post(res, appstrings.required_field, null, 400);
+
+  try {
+    var orderData = await ORDERS.findOne({
+      where: { id: orderId },
+      include: [
+        { model: ADDRESS, attributes: ['id', 'addressName', 'addressType', 'houseNo', 'latitude', 'longitude', 'town', 'landmark', 'city'] },
+        { model: ORDERSTATUS, attributes: ['statusName', 'status', 'parentStatus'] },
+        { model: COMPANY, attributes: ['companyName', 'logo1', 'rating', 'totalRatings', 'address1', 'latitude', 'longitude'], required: true },
+        {
+          model: SUBORDERS, attributes: ['id', 'serviceId', 'quantity'],
+          include: [{
+            model: SERVICES,
+            attributes: ['id', 'name', 'productType', 'description', 'price', 'icon', 'thumbnail', 'type', 'price', 'duration'],
+            required: false
+          }]
+
+
+        },
+
+        {
+          model: ASSIGNMENT, attributes: ['id', 'jobStatus'],
+          where: { jobStatus: [1, 3] },
+          required: false,
+          include: [{
+            model: EMPLOYEE,
+            attributes: ['id', 'firstName', 'lastName', 'countryCode', 'phoneNumber', 'image', 'rating', 'totalRatings', 'totalOrders'],
+            required: false
+          }]
+        }
+
       ]
 
-      });
-     if(orderData) 
-     
-     {
-     
-    
-      return responseHelper.post(res,appstrings.detail,orderData);
+    });
+    if (orderData) {
+
+      orderData = JSON.parse(JSON.stringify(orderData))
+
+      //Order Isntruction
+      var instructions = await INSTRUCTIONS.findOne({ where: { companyId: req.parentCompany } })
+      var driverIns = []
+      var pickupIns = []
+
+      if (instructions && instructions.dataValues && instructions.dataValues.deliveryInstructions != "") {
+        var inst = JSON.parse(instructions.dataValues.deliveryInstructions)
+
+        for (var k = 0; k < inst.length; k++) {
+          var array = (orderData.deliveryInstructions.includes(",")) ? orderData.deliveryInstructions.split(",") : [orderData.deliveryInstructions]
+          if (array.includes(inst[k].id + ""))
+            driverIns.push(inst[k].heading)
+        }
+      }
 
 
-     }
-      else return responseHelper.post(res,appstrings.no_record,null,204);
-    } catch (e) {
-      return responseHelper.error(res, e.message, 400);
+      if (instructions && instructions.dataValues && instructions.dataValues.pickupInstructions != "") {
+        var inst = JSON.parse(instructions.dataValues.pickupInstructions)
+
+        for (var k = 0; k < inst.length; k++) {
+          var array = (orderData.pickupInstructions.includes(",")) ? orderData.pickupInstructions.split(",") : [orderData.pickupInstructions]
+          if (array.includes(inst[k].id + ""))
+            pickupIns.push(inst[k].heading)
+        }
+      }
+
+      orderData.deliveryInstructions = driverIns
+      orderData.pickupInstructions = pickupIns
+
+      return responseHelper.post(res, appstrings.detail, orderData);
+
+
     }
-  });
+    else return responseHelper.post(res, appstrings.no_record, null, 204);
+  } catch (e) {
+    return responseHelper.error(res, e.message, 400);
+  }
+});
 
-
-  app.post('/cancel',checkAuth,async (req, res, next) => {
+  app.post('/cancel', checkAuth, async (req, res, next) => {
     const params = req.body;
   
   
-    let responseNull=  commonMethods.checkParameterMissing([params.orderId])
-    if(responseNull) return responseHelper.post(res, appstrings.required_field,null,400);
-    
-    try{
+    let responseNull = commonMethods.checkParameterMissing([params.orderId])
+    if (responseNull) return responseHelper.post(res, appstrings.required_field, null, 400);
+  
+    try {
       const orderData = await ORDERS.findOne({
-      where: {
-        id: params.orderId,
-        userId: req.id
-        
+        where: {
+          id: params.orderId,
+          userId: req.id
+  
+        }
+      })
+  
+      if (orderData) {
+  
+  
+        var orderDate = new Date(orderData.dataValues.createdAt)
+        var today = new Date()
+        var diffMins = diff_mins(today, orderDate);
+        if (orderData.progressStatus >= 1 && diffMins > 30)
+          return responseHelper.post(res, appstrings.order_not_cancel, null, 400);
+  
+  
+        else {
+  
+          const updatedResponse = await ORDERS.update({
+            progressStatus: 2,
+            cancellationReason: params.cancellationReason
+          },
+            {
+              where: {
+                id: orderData.dataValues.id
+              }
+            });
+  
+  
+          if (updatedResponse) {
+            orderData.dataValues.progressStatus = 3
+            orderData.dataValues.cancellationReason = params.cancellationReason
+  
+            return responseHelper.post(res, appstrings.cancel_success, orderData);
+          }
+          else return responseHelper.post(res, appstrings.oops_something, null, 400);
+  
+        }
       }
-      })  
-        
-      if(orderData)
-     {
   
-
-var orderDate=new Date(orderData.dataValues.createdAt)
-var today=new Date()
-var diffMins = diff_mins(today,orderDate);
-if(orderData.progressStatus>=1 &&  diffMins>30)
-return responseHelper.post(res, appstrings.order_not_cancel, null,400);
-
-
-else
-{
- 
-  const updatedResponse = await ORDERS.update({
-    progressStatus: 2,
-    cancellationReason:params.cancellationReason
-  },
-  {
-    where : {
-    id: orderData.dataValues.id
-  }
-  });
+      else return responseHelper.post(res, appstrings.no_record, null, 204);
   
-        
-        if(updatedResponse) 
-  {
-       orderData.dataValues.progressStatus=3
-       orderData.dataValues.cancellationReason=params.cancellationReason
-
-        return responseHelper.post(res, appstrings.cancel_success, orderData);
-  }
-        else return responseHelper.post(res, appstrings.oops_something, null,400);
   
-  }
-}
-
-  else return responseHelper.post(res, appstrings.no_record, null,204);
-
-
-   }
-  catch (e) {
-    console.log(e)
-    return responseHelper.error(res, e.message, 400);
-  }
-    
+    }
+    catch (e) {
+      console.log(e)
+      return responseHelper.error(res, e.message, 400);
+    }
+  
   })
   
-
   app.delete('/delete',checkAuth,async(req,res, next) => {
     const params = req.query;
     

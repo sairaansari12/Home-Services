@@ -303,7 +303,6 @@ module.exports = function (io) {
            groupId = data.groupId;
         else
           groupId = groupID;
-console.log("=====sendmesg========type", type)
         if (!authToken) {
           return socket.emit('errorMessage', 'Please Provide JWT Token');
         }
@@ -422,7 +421,6 @@ console.log("=====sendmesg========type", type)
                 media.media = newDir + mediaPath + timestamp +"."+ data.extension;
                 media.thumbnail = newDir + '/thumbnails/' + timestamp + '.png';
                 const mediaMessage = await mediaMessages.create(media);
-                console.log("==========mediaMessage==========")
 
                 if (!mediaMessage) {
                   const deleteMessage = await chatMessages.destroy({
@@ -449,9 +447,6 @@ console.log("=====sendmesg========type", type)
               requestData.usertype = data.usertype;
               const messageDetail = await messageDetails(requestData);
               var toUser;
-              console.log("==========befor if==========")
-
-              console.log("==========new msg==========", groupId, messageDetail)
               io.sockets.emit("newMessageEvent",messageDetail)
               io.sockets.in(groupId).emit('newMessage', messageDetail); // emit message in room
               var notifData = {
