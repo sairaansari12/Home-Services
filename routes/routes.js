@@ -15,6 +15,7 @@ const jwt = require('jsonwebtoken');
  ADDRESS = db.models.address
  BANNERS = db.models.banners
  ORDERS=db.models.orders
+ SERVICERATINGS=db.models.serviceRatings
  SUBORDERS=db.models.suborders
  SCHEDULE = db.models.schedule
  USERS =db.models.users
@@ -51,7 +52,7 @@ const coupanCtrl = require('../controllers/api/coupan.controller');
 const ratingCtrl = require('../controllers/api/rating.controller');
 const notifCtrl = require('../controllers/api/notification.controller');
 const othrCtrl = require('../controllers/api/others.controller');
-
+const compCtrl = require('../controllers/api/company.controller');
 
 const scheduleCtrl = require('../controllers/api/schedule.controller');
 const companyRoutes   = require('./dashboardRoutes');
@@ -98,6 +99,9 @@ routes.use("/mobile/coupan/",coupanCtrl)
 
 routes.use("/mobile/orders/",ordersCtrl)
 
+//COMPANY CTRL
+
+routes.use('/mobile/company',compCtrl);
 
 //SCHEDULE MANAGEMENT
 

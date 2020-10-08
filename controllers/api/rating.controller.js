@@ -114,71 +114,162 @@ if(subData && subData.length>0)
 
 
 ///////// Add Coupan /////////////////////////
-app.post('/addRating', checkAuth,async (req, res, next) => {
-  try{
-    const data    = req.body;
+app.post('/addRating', checkAuth, async (req, res, next) => {
+  try {
+    const data = req.body;
     //Get Coupan Details
 
-    let responseNull=  commonMethods.checkParameterMissing([data.orderId,data.ratingData])
-  if(responseNull) return responseHelper.post(res, appstrings.required_field,null,400);
+    let responseNull = commonMethods.checkParameterMissing([data.companyId])
+    if (responseNull) return responseHelper.post(res, appstrings.required_field, null, 400);
+    var companyrating,orderrating ;
+//to check if its company rating or order rating
+    if(data.orderId){
+      //order rating
+      orderrating = await COMPANYRATING.findOne({ 
+        where: { 
+          userId: req.id,
+          companyId: data.companyId,
+          orderId: data.orderId
+        } 
+      })
+    } else{
+      // company rating
+      companyrating = await COMPANYRATING.findOne(
+        { where: { 
+          userId: req.id,
+          companyId: data.companyId,
+          [Op.or]:[{
+            orderId: ""
+          },{
+            orderId: null
+          }
+        ]
+         } 
+      })
+
+    }
+
+    var upload = []
+    if (req.files && req.files['images']) {
+      var fdata = req.files['images']
+      if (fdata.length && fdata.length > 0) {
+
+        for (var k = 0; k < fdata.length; k++) {
+
+          ImageFile = req.files['images'][k];
+          bannerImage = Date.now() + '_' + ImageFile.name.replace(/\s/g, "");
+          upload.push(bannerImage)
+          ImageFile.mv(config.UPLOAD_DIRECTORY + "reviews/" + bannerImage, function (err) {
+            //upload file
+            if (err)
+              return responseHelper.error(res, err.meessage, 400);
+          });
+        }
+
+      }
+
+      else {
+        ImageFile = req.files['images'];
+        bannerImage = Date.now() + '_' + ImageFile.name.replace(/\s/g, "");
+        upload.push(bannerImage)
+        ImageFile.mv(config.UPLOAD_DIRECTORY + "reviews/" + bannerImage, function (err) {
+          //upload file
+          if (err)
+            return responseHelper.error(res, err.meessage, 400);
+        });
+
+      }
+
+    }
+    if (!data.orderId) {
+        if(companyrating){
+          if (upload.length == 0 && companyrating.dataValues.reviewImages) {
+            upload = companyrating.dataValues.reviewImages
+          }
+          await COMPANYRATING.update({
+            rating: data.rating,
+            foodQuality: data.foodQuality,
+            foodQuantity: data.foodQuantity,
+            packingPres: data.packingPres,
+            review: data.review,
+            reviewImages: upload.toString(),
+          }, { where: { id: companyrating.dataValues.id, companyId: data.companyId,[Op.or]:[{ orderId: ""},{
+            orderId: null}] } });
+        } else{
+          await COMPANYRATING.create({
+            rating: data.rating,
+            foodQuality: data.foodQuality,
+            foodQuantity: data.foodQuantity,
+            packingPres: data.packingPres,
+            review: data.review,
+            userId: req.id,
+            orderId: data.orderId,
+            reviewImages: upload.toString(),
+            companyId: data.companyId
+          });
+        } 
+    }  else {
+      if(orderrating){
+        if (upload.length == 0 && orderrating.dataValues.reviewImages) {
+          upload = orderrating.dataValues.reviewImages
   
-  var datatoUpdated=JSON.parse(JSON.stringify(data.ratingData))
-  var employeeUpdated=JSON.parse(JSON.stringify(data.empRatingData))
-
-    for(var h=0;h<datatoUpdated.length;h++)
-    {
-
-
-      await SUBORDERS.update({
-        rating: datatoUpdated[h].rating,
-        review: datatoUpdated[h].review
-    
-      },
-      {where : {userId: req.id,serviceId : datatoUpdated[h].serviceId, orderId : data.orderId}},
-
-       )}
-
-       for(var h=0;h<employeeUpdated.length;h++)
-       {
-   
-   
-         await ASSIGNMENT.update({
-           rating: employeeUpdated[h].rating,
-           review: employeeUpdated[h].review
-       
-         },
-         {where : {empId: employeeUpdated[h].empId , orderId : data.orderId}})
-        
-        
-         var findData=await EMPLOYEE.findOne({where:{id:employeeUpdated[h].empId}});
-
-         var notifPushUserData={title:employeeUpdated[h].rating +" "+appstrings.new_rating_added+"  "+commonMethods.formatAMPM(new Date),
-          description:employeeUpdated[h].rating +" "+ appstrings.new_rating_added+'  ' +commonMethods.formatAMPM(new Date) +" For order No- "+data.orderId,
-          token:findData.dataValues.deviceToken,  
-              platform:findData.dataValues.platform,
-              userId :findData.id, role :4,
-              orderId:data.orderId,
-              notificationType:"FEEDBACK",status:0,
         }
-        
-        commonNotification.insertNotification(notifPushUserData)   
-        commonNotification.sendEmpNotification(notifPushUserData)
+        await COMPANYRATING.update({
+          rating: data.rating,
+          foodQuality: data.foodQuality,
+          foodQuantity: data.foodQuantity,
+          packingPres: data.packingPres,
+          review: data.review,
+          reviewImages: upload.toString(),
+        }, { where: { id: orderrating.dataValues.id, companyId: data.companyId, orderId: data.orderId } });
+      } else{
+        await COMPANYRATING.create({
+          rating: data.rating,
+          foodQuality: data.foodQuality,
+          foodQuantity: data.foodQuantity,
+          packingPres: data.packingPres,
+          review: data.review,
+          userId: req.id,
+          orderId: data.orderId,
+          reviewImages: upload.toString(),
+          companyId: data.companyId
+        });
+      } 
+    }    
 
 
+    //ADD SERVICE RATIUNGS
 
-        
-        }
+    if (data.ratingData && data.ratingData.length > 0) {
+      var datatoUpdated = []
+      if (typeof data.ratingData == "string")
+        datatoUpdated = JSON.parse(data.ratingData)
+      else
+        datatoUpdated = JSON.parse(JSON.stringify(data.ratingData))
 
+      for (var h = 0; h < datatoUpdated.length; h++) {
 
-      return responseHelper.post(res, appstrings.rating_added,null);
-      
-    
+        SERVICERATINGS.create({
+          rating: datatoUpdated[h].rating,
+          review: datatoUpdated[h].review,
+          serviceId: datatoUpdated[h].serviceId,
+          userId: req.id,
+          orderId: data.orderId
+
+        });
+
+      }
+
+    }
+
+    return responseHelper.post(res, appstrings.rating_added, null);
   }
+
+
   catch (e) {
     return responseHelper.error(res, e.message, 400);
   }
 });
-
 ///////// Add Coupan /////////////////////////
 app.post('/addCompanyRating', checkAuth,async (req, res, next) => {
   try{

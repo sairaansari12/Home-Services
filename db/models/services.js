@@ -17,6 +17,23 @@ module.exports = function(sequelize, DataTypes) {
       
   },
 
+
+  productType: {
+    type: DataTypes.INTEGER(10),
+    defaultValue: 1
+  },
+
+  addOnIds: {
+    type: DataTypes.TEXT(),
+    allowNull: true,
+      get() {
+        if(this.getDataValue('addOnIds') && this.getDataValue('addOnIds')!="") 
+        return JSON.parse(this.getDataValue('addOnIds'))
+        else return [];
+    },
+  },
+
+  
     name: {
       type: DataTypes.STRING(100),
       allowNull: true,
@@ -25,9 +42,8 @@ module.exports = function(sequelize, DataTypes) {
     },
 
     description: {
-      type: DataTypes.TEXT,
+      type: DataTypes.TEXT('long'),
       allowNull: false,
-      defaultValue: ""
     },
 
     icon: {
@@ -70,19 +86,42 @@ module.exports = function(sequelize, DataTypes) {
     },
 
 
-    turnaroundTime: {
-      type: DataTypes.STRING(30),
-      allowNull: true,
+
+
+    
+    originalPrice: {
+      type: DataTypes.FLOAT(20),
+      allowNull: false,
+      defaultValue: 0
+    },
+
+    
+    offer: {
+      type: DataTypes.INTEGER(10),
+      allowNull: false,
+      defaultValue: 0
+    },
+
+
+    
+    offerName: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
       defaultValue: ""
     },
 
     
+    validUpto: {
+      type: DataTypes.DATE(),
+      allowNull: true,
+    },
+    
 
     price:
     {
-      type: DataTypes.STRING(10),
+      type: DataTypes.FLOAT(10),
       allowNull: false,
-      defaultValue: 1
+      defaultValue: 0
     },
 
     includedServices: {
@@ -107,18 +146,13 @@ module.exports = function(sequelize, DataTypes) {
     },
 
 
-
-
-    child_service: {
-      type: DataTypes.INTEGER(20),
-      allowNull: true
+    itemType: {
+      type: DataTypes.STRING(20),
+      defaultValue: '0'
     },
 
-    connected_service: {
-      type: DataTypes.INTEGER(20),
-      allowNull: true
-    },
 
+    
 
     orderby: {
       type: DataTypes.INTEGER(20),
@@ -133,6 +167,14 @@ module.exports = function(sequelize, DataTypes) {
     },
     
 
+
+    approve: {
+      type: DataTypes.INTEGER(11),
+      allowNull: false,
+      defaultValue: 0
+    },
+
+
     companyId: {
       type: DataTypes.UUID,
       allowNull: false,
@@ -143,10 +185,32 @@ module.exports = function(sequelize, DataTypes) {
        onUpdate: 'CASCADE',
        onDelete: 'CASCADE',
     },
+
+    totalRatings:
+    {
+      type: DataTypes.STRING(20),
+      defaultValue: 0
+    
+    },
+    
+    rating:
+    {
+      type: DataTypes.STRING(20),
+      defaultValue: 0,
+    
+    },
+    
+    popularity:
+    {
+      type: DataTypes.STRING(20),
+      defaultValue: 0,
+    
+    },
+
     createdAt: {
-      type: DataTypes.INTEGER(11),
+      type: DataTypes.DATE(),
       allowNull: false,
-      defaultValue: common.timestamp()
+      defaultValue: new Date()
     
     }
   }, {

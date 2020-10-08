@@ -7,8 +7,8 @@ var JOBS = db.models.jobs
 
 var RTController = {
 
-    updateLocation: async function(jobId,empId, lat_long, callback) {
-var currentLat="", currentLong=""
+    updateLocation: async function (jobId, empId, lat_long, callback) {
+        var currentLat = "", currentLong = ""
 
 
         let responseNull = common.checkParameterMissing([jobId, lat_long])
@@ -46,16 +46,15 @@ var currentLat="", currentLong=""
                 // console.log("SIZE>>>"+new_lat_long.length)
 
                 waterfall([
-                    function(callback) {
+                    function (callback) {
 
                         for (var p = 0; p < new_lat_long.length; p++) {
-currentLat=  new_lat_long[p].lat
-currentLong=  new_lat_long[p].long
-                     
- latArray.push(new_lat_long[p].lat)
+                            currentLat = new_lat_long[p].lat
+                            currentLong = new_lat_long[p].long
+
+                            latArray.push(new_lat_long[p].lat)
                             longtArray.push(new_lat_long[p].long)
-                            if (p == new_lat_long.length - 1)
-                            {
+                            if (p == new_lat_long.length - 1) {
                                 callback(null, latArray);
                             }
                         }
@@ -63,7 +62,7 @@ currentLong=  new_lat_long[p].long
 
                     }
 
-                ], async function(err, result) {
+                ], async function (err, result) {
 
 
                     latArray = "[" + latArray + "]"
@@ -115,7 +114,7 @@ currentLong=  new_lat_long[p].long
 
 
 
-    updateVehicleLocation: async function(driver_id, latitude, longitude, callback) {
+    updateVehicleLocation: async function (driver_id, latitude, longitude, callback) {
 
         let responseNull = common.checkParameterMissing([driver_id, latitude, longitude])
         if (responseNull)
@@ -159,7 +158,7 @@ currentLong=  new_lat_long[p].long
 
 
 
-    getLocation: async function(jobId, driverId, callback) {
+    getLocation: async function (jobId, driverId, callback) {
 
 
         let responseNull = common.checkParameterMissing([jobId])
@@ -167,30 +166,29 @@ currentLong=  new_lat_long[p].long
         try {
 
             var dataResponse = await ORDERS.findOne({
-                attributes:['id','trackingLatitude','trackingLongitude','orderNo'],
+                attributes: ['id', 'trackingLatitude', 'trackingLongitude', 'orderNo'],
                 where: {
                     id: jobId
                 }
             });
 
 
-            dataResponse=JSON.parse(JSON.stringify(dataResponse))
+            dataResponse = JSON.parse(JSON.stringify(dataResponse))
 
-            if (dataResponse)
+            if (dataResponse) {
+                if (dataResponse.trackingLatitude) {
+                    var latitudes = dataResponse.trackingLatitude.replace(/^\[|\]$/g, "").split(",");
+                    var longitudes = dataResponse.trackingLongitude.replace(/^\[|\]$/g, "").split(",");
 
-            {
-                if(dataResponse.trackingLatitude)
-                {
-                var latitudes=dataResponse.trackingLatitude.replace(/^\[|\]$/g, "").split(",");
-                var longitudes=dataResponse.trackingLongitude.replace(/^\[|\]$/g, "").split(",");
-
-                dataResponse.trackingLatitude = latitudes
-                dataResponse.trackingLongitude = longitudes
-                dataResponse.lastLatitude=latitudes[latitudes.length-1]
-                dataResponse.lastLongitude=longitudes[longitudes.length-1]
+                    dataResponse.trackingLatitude = latitudes
+                    dataResponse.trackingLongitude = longitudes
+                    dataResponse.lastLatitude = latitudes[latitudes.length - 1]
+                    dataResponse.lastLongitude = longitudes[longitudes.length - 1]
                 }
-                else{ dataResponse.lastLatitude=""
-                dataResponse.lastLongitude=""}
+                else {
+                    dataResponse.lastLatitude = ""
+                    dataResponse.lastLongitude = ""
+                }
                 callback(null, dataResponse)
 
             } else {
@@ -209,10 +207,10 @@ currentLong=  new_lat_long[p].long
 
 
 
-io.on("connection", function(socket) {
+io.on("connection", function (socket) {
 
     //console.log("one client is connected..................................");
-    socket.on("socketFromClient", function(msg) {
+    socket.on("socketFromClient", function (msg) {
         console.log(msg);
         RECIEVERSocketID = msg.driverId;
         //socket.join(userSocketID);
@@ -231,7 +229,7 @@ io.on("connection", function(socket) {
 
 
 
-            self.updateLocation(msg.orderId,msg.empId,msg.latLong, function(err, data) {
+            self.updateLocation(msg.orderId, msg.empId, msg.latLong, function (err, data) {
 
                 if (data) {
                     responseObj['result'] = 1;
@@ -252,7 +250,7 @@ io.on("connection", function(socket) {
 
 
 
-            self.updateVehicleLocation(msg.driverId, msg.latitude, msg.longitude, function(err, data) {
+            self.updateVehicleLocation(msg.driverId, msg.latitude, msg.longitude, function (err, data) {
 
                 if (data) {
                     responseObj['result'] = 1;
@@ -271,7 +269,7 @@ io.on("connection", function(socket) {
 
 
         if (msg.methodName && msg.methodName == "getLocation") {
-            self.getLocation(msg.orderId, msg.driverId, function(err, data) {
+            self.getLocation(msg.orderId, msg.driverId, function (err, data) {
 
 
                 if (data) {

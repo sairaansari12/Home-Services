@@ -79,11 +79,48 @@ logo3: {
 },
 
 
+
+startTime: {
+  type: DataTypes.STRING(200),
+  allowNull: false,
+  defaultValue: '',
+},
+
+
+endTime: {
+  type: DataTypes.STRING(200),
+  allowNull: false,
+  defaultValue: '',
+},
+
 status: {
   type: DataTypes.INTEGER(11),
   allowNull: false,
   defaultValue: 1
 },
+
+
+//0->Pickup , 1->Delivery ,2->Both
+
+deliveryType:
+{
+  type: DataTypes.INTEGER(11),
+  defaultValue: 2
+
+},
+
+
+//0->Veg, 1-->Non veg,2->both
+
+
+itemType:
+{
+  type: DataTypes.INTEGER(11),
+  defaultValue: 2
+
+},
+
+
 
 address1: {
   type: DataTypes.TEXT,
@@ -91,29 +128,139 @@ address1: {
     defaultValue: ''
 },
 
-address1LatLong: {
-  type: DataTypes.TEXT,
+// address1LatLong: {
+//   type: DataTypes.TEXT,
+//   allowNull: false,
+//   defaultValue: ""
+// },
+
+
+latitude: {
+  type: DataTypes.FLOAT(10),
   allowNull: false,
-  defaultValue: ""
+  defaultValue: 0
 },
 
 
-address2LatLong: {
-  type: DataTypes.TEXT,
+longitude: {
+  type: DataTypes.FLOAT(10),
   allowNull: false,
-  defaultValue: ""
+  defaultValue: 0
 },
 
-address2: {
-  type: DataTypes.TEXT,
-  allowNull: true,
-    defaultValue: ''
-},
 
 websiteLink: {
   type: DataTypes.TEXT,
   allowNull: true,
     defaultValue: ''
+},
+
+
+
+totalRatings:
+{
+  type: DataTypes.STRING(11),
+  defaultValue: 0
+
+},
+
+rating:
+{
+  type: DataTypes.STRING(11),
+  defaultValue: 0,
+
+},
+foodQualityRating:
+{
+  type: DataTypes.STRING(11),
+  defaultValue: 0,
+
+},
+
+
+foodQuantityRating:
+{
+  type: DataTypes.STRING(11),
+  defaultValue: 0,
+
+},
+
+packingPresRating:
+{
+  type: DataTypes.STRING(11),
+  defaultValue: 0,
+
+},
+
+
+
+totalOrders:
+{
+  type: DataTypes.STRING(100),
+  defaultValue: 0,
+  get() {
+   
+    return this.getDataValue('totalOrders').toString()
+},
+},
+
+
+totalOrders24:
+{
+  type: DataTypes.STRING(100),
+  defaultValue: 0,
+
+},
+
+offer:
+{
+  type: DataTypes.STRING(255),
+  allowNull: true
+
+},
+
+
+
+tags: {
+  type: DataTypes.TEXT(),
+  allowNull: true,
+    get() {
+      if(this.getDataValue('tags') && this.getDataValue('tags')!="") 
+      return JSON.parse(this.getDataValue('tags'))
+      else return [];
+  },
+},
+
+
+
+tagsIncluded: {
+  type: DataTypes.TEXT(),
+  allowNull: true,
+    get() {
+      if(this.getDataValue('tagsIncluded') && this.getDataValue('tagsIncluded')!="") 
+      return JSON.parse(this.getDataValue('tagsIncluded'))
+      else return [];
+  },
+},
+
+
+
+deviceToken:{
+  type: DataTypes.STRING(255),
+  allowNull: false,
+  defaultValue: ''
+},
+
+sessionToken:{
+  type: DataTypes.STRING(1000),
+  allowNull: false,
+  defaultValue: ''
+},
+
+platform:{
+  type: DataTypes.STRING(255),
+  allowNull: false,
+  defaultValue: ''
 },
 
 
